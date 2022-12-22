@@ -367,7 +367,7 @@ Summary: The Linux kernel
 
 %if 0%{?fedora}
 # Kernel headers are being split out into a separate package
-%define with_headers 0
+%define with_headers 1
 %define with_cross_headers 0
 # no stablelist
 %define with_kernel_abi_stablelists 0
