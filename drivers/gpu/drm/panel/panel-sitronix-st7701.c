@@ -269,8 +269,8 @@ static int st7701s_panel_enable(struct drm_panel *panel)
 		goto fail;
 	}
 
-	st7701s->backlight->props.power = FB_BLANK_UNBLANK;
-	backlight_update_status(st7701s->backlight);
+	// st7701s->backlight->props.power = FB_BLANK_UNBLANK;
+	// backlight_update_status(st7701s->backlight);
 
 	st7701s->enabled = true;
 
@@ -311,8 +311,8 @@ static int st7701s_panel_disable(struct drm_panel *panel)
 
 	usleep_range(10000, 15000);
 
-	st7701s->backlight->props.power = FB_BLANK_POWERDOWN;
-	backlight_update_status(st7701s->backlight);
+	// st7701s->backlight->props.power = FB_BLANK_POWERDOWN;
+	// backlight_update_status(st7701s->backlight);
 
 	st7701s->enabled = false;
 
@@ -446,7 +446,7 @@ static int st7701s_panel_probe(struct mipi_dsi_device *dsi)
 	struct device_node *np = dev->of_node;
 	struct device_node *timings;
 	struct st7701s_panel *panel;
-	struct backlight_properties bl_props;
+	// struct backlight_properties bl_props;
 	int ret;
 	u32 video_mode;
 	panel = devm_kzalloc(&dsi->dev, sizeof(*panel), GFP_KERNEL);
@@ -515,20 +515,20 @@ static int st7701s_panel_probe(struct mipi_dsi_device *dsi)
 		gpiod_set_value(panel->reset, 0);
 
 
-	memset(&bl_props, 0, sizeof(bl_props));
-	bl_props.type = BACKLIGHT_RAW;
-	bl_props.brightness = 255;
-	bl_props.max_brightness = 255;
+	// memset(&bl_props, 0, sizeof(bl_props));
+	// bl_props.type = BACKLIGHT_RAW;
+	// bl_props.brightness = 255;
+	// bl_props.max_brightness = 255;
 
-	panel->backlight = devm_backlight_device_register(
-				dev, dev_name(dev),
-				dev, dsi,
-				&st7701s_bl_ops, &bl_props);
-	if (IS_ERR(panel->backlight)) {
-		ret = PTR_ERR(panel->backlight);
-		dev_err(dev, "Failed to register backlight (%d)\n", ret);
-		return ret;
-	}
+	// panel->backlight = devm_backlight_device_register(
+	// 			dev, dev_name(dev),
+	// 			dev, dsi,
+	// 			&st7701s_bl_ops, &bl_props);
+	// if (IS_ERR(panel->backlight)) {
+	// 	ret = PTR_ERR(panel->backlight);
+	// 	dev_err(dev, "Failed to register backlight (%d)\n", ret);
+	// 	return ret;
+	// }
 
 	drm_panel_init(&panel->base, &dsi->dev, &st7701s_panel_funcs,
 			DRM_MODE_CONNECTOR_DSI);
