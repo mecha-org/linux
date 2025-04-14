@@ -72,7 +72,8 @@ dtb-$(CONFIG_ARCH_LAYERSCAPE) += fsl-ls1028a-qds-backplane.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8dxl-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mm-ab2.dtb imx8mm-ab2-m4.dtb imx8mm-ddr4-ab2.dtb imx8mm-ddr4-ab2-m4.dtb \
 			  imx8mm-ddr4-ab2-revb.dtb imx8mm-ddr4-ab2-m4-revb.dtb \
-			  imx8mm-mecha.dtb imx8mm-mecha-comet-m-gen1.dtb
+			  imx8mm-mecha.dtb imx8mm-mecha-comet-m-gen1-rev5.dtb imx8mm-mecha-comet-m-gen1-ecspi2.dtb \
+			  imx8mm-mecha-comet-m-gen1-rev3.dtb 
 dtb-$(CONFIG_ARCH_MXC) += imx8mm-evk.dtb imx8mm-evk-rpmsg.dtb imx8mm-evk-rm67191.dtb \
 			  imx8mm-evk-root.dtb imx8mm-evk-inmate.dtb imx8mm-evk-revb-qca-wifi.dtb \
 			  imx8mm-evk-ecspi-slave.dtb \
