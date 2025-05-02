@@ -1717,6 +1717,32 @@ struct v4l2_ctrl_h264_decode_params {
 
 #define V4L2_CID_STATELESS_H264_ENCODE_PARAMS	(V4L2_CID_CODEC_STATELESS_BASE + 8)
 
+/**
+ * struct v4l2_ctrl_h264_encode_params - H264 encoding parameters
+ *
+ * @slice_type: selects slice type. Set to one of V4L2_H264_SLICE_TYPE_{}
+ * @pic_parameter_set_id: identifies the picture parameter set that is referred to
+ * in the slice header. The value shall be in the range of 0 to 255, inclusive.
+ * @frame_num: an identifier for pictures.
+ * @idr_pic_id: identifies an IDR picture.
+ * @cabac_init_idc: index for determining the initialization table used in the
+ * initialization process for context variables. The value of cabac_init_idc
+ * shall be in the range of 0 to 2, inclusive.
+ * @disable_deblocking_filter_idc: specifies whether the operation of the
+ * deblocking filter shall be disabled across some block edges of the slice and
+ * specifies for which edges the filtering is disabled.
+ * @slice_alpha_c0_offset_div2: offset used in accessing the alpha and tC0
+ * deblocking filter tables for filtering operations controlled by the macroblocks
+ * within the slice.
+ * @slice_beta_offset_div2: offset used in accessing the beta deblocking filter
+ * table for filtering operations controlled by the macroblocks within the slice.
+ * @slice_size_mb_rows: number of macroblock rows in a slice.
+ * @pic_init_qp_minus26: initial value minus 26 of luma qp for each slice.
+ * @chroma_qp_index_offset: offset that shall be added to qp luma for addressing the
+ * table of qp chroma values for the Cb chroma component.
+ * @flags: combination of V4L2_H264_ENCODE_FLAG_{} flags.
+ * @reference_ts: timestamp of the V4L2 buffer to use as reference
+ */
 struct v4l2_ctrl_h264_encode_params {
 	/* Slice parameters */
 
@@ -1731,8 +1757,16 @@ struct v4l2_ctrl_h264_encode_params {
 
 	__s32 slice_size_mb_rows;
 
-	/* PPS parameters */
-
+	/*
+	 * PPS parameters
+	 *
+	 * TODO Duplicating the PPS in the encode_params may not be necessary,
+	 * if the PPS are set via separate control. Otherwise, it may be useful
+	 * to just use struct v4l2_ctrl_h264_pps here.
+	 *
+	 * Needs to be consistent with the values set in the PPS referenced by
+	 * pic_parameter_set_id.
+	 */
 	__s8 pic_init_qp_minus26;
 	__s8 chroma_qp_index_offset;
 
@@ -1749,6 +1783,14 @@ struct v4l2_ctrl_h264_encode_params {
 
 #define V4L2_CID_STATELESS_H264_ENCODE_RC	(V4L2_CID_CODEC_STATELESS_BASE + 9)
 
+/**
+ * struct v4l2_ctrl_h264_encode_rc
+ *
+ * @qp: quantization parameter for the currently encoded slice
+ *
+ * TODO Setting the QP is enough for implementing const QP, but probably the
+ * entire rate control mechanism has to be reworked.
+ */
 struct v4l2_ctrl_h264_encode_rc {
 	__u32 qp;
 	__u32 qp_min;
