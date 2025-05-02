@@ -388,6 +388,15 @@ void v4l2_ctrl_type_op_log(const struct v4l2_ctrl *ctrl)
 	case V4L2_CTRL_TYPE_H264_PRED_WEIGHTS:
 		pr_cont("H264_PRED_WEIGHTS");
 		break;
+	case V4L2_CTRL_TYPE_H264_ENCODE_PARAMS:
+		pr_cont("H264_ENCODE_PARAMS");
+		break;
+	case V4L2_CTRL_TYPE_H264_ENCODE_RC:
+		pr_cont("H264_ENCODE_RC");
+		break;
+	case V4L2_CTRL_TYPE_H264_ENCODE_FEEDBACK:
+		pr_cont("H264_ENCODE_FEEDBACK");
+		break;
 	case V4L2_CTRL_TYPE_FWHT_PARAMS:
 		pr_cont("FWHT_PARAMS");
 		break;
@@ -1189,6 +1198,11 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
 			zero_reserved(*dpb_entry);
 		}
 		zero_reserved(*p_h264_dec_params);
+		break;
+
+	case V4L2_CTRL_TYPE_H264_ENCODE_PARAMS:
+	case V4L2_CTRL_TYPE_H264_ENCODE_RC:
+	case V4L2_CTRL_TYPE_H264_ENCODE_FEEDBACK:
 		break;
 
 	case V4L2_CTRL_TYPE_VP8_FRAME:
@@ -2014,6 +2028,15 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
 		break;
 	case V4L2_CTRL_TYPE_H264_PRED_WEIGHTS:
 		elem_size = sizeof(struct v4l2_ctrl_h264_pred_weights);
+		break;
+	case V4L2_CTRL_TYPE_H264_ENCODE_PARAMS:
+		elem_size = sizeof(struct v4l2_ctrl_h264_encode_params);
+		break;
+	case V4L2_CTRL_TYPE_H264_ENCODE_RC:
+		elem_size = sizeof(struct v4l2_ctrl_h264_encode_rc);
+		break;
+	case V4L2_CTRL_TYPE_H264_ENCODE_FEEDBACK:
+		elem_size = sizeof(struct v4l2_ctrl_h264_encode_feedback);
 		break;
 	case V4L2_CTRL_TYPE_VP8_FRAME:
 		elem_size = sizeof(struct v4l2_ctrl_vp8_frame);
