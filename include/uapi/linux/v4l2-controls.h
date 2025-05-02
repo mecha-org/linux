@@ -1715,6 +1715,9 @@ struct v4l2_ctrl_h264_decode_params {
 	__u32 flags;
 };
 
+#define V4L2_H264_NAL_CODED_SLICE_NON_IDR_PIC	1
+#define V4L2_H264_NAL_CODED_SLICE_IDR_PIC	5
+
 #define V4L2_CID_STATELESS_H264_ENCODE_PARAMS	(V4L2_CID_CODEC_STATELESS_BASE + 8)
 
 /**
@@ -1740,6 +1743,8 @@ struct v4l2_ctrl_h264_decode_params {
  * @pic_init_qp_minus26: initial value minus 26 of luma qp for each slice.
  * @chroma_qp_index_offset: offset that shall be added to qp luma for addressing the
  * table of qp chroma values for the Cb chroma component.
+ * @nal_ref_idc: nal_ref_idc for the header of the generated NAL unit
+ * @nal_unit_type: one of the V4L2_H264_NAL_CODED_SLICE_{} values
  * @flags: combination of V4L2_H264_ENCODE_FLAG_{} flags.
  * @reference_ts: timestamp of the V4L2 buffer to use as reference
  */
@@ -1771,6 +1776,16 @@ struct v4l2_ctrl_h264_encode_params {
 	__s8 chroma_qp_index_offset;
 
 	__u32 flags; /* V4L2_H264_ENCODE_FLAG_ */
+
+	/*
+	 * If nal_ref_idc is 0, the NAL unit won't be used as reference by
+	 * later NAL units. Any other value indicates that the NAL unit may be
+	 * used as reference.
+	 */
+	__u8 nal_ref_idc;
+
+	/* TODO Can we infer the nal_unit_type from the slice_type? */
+	__u8 nal_unit_type;
 
 	/* Reference */
 
