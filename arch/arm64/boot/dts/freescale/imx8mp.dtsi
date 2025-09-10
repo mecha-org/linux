@@ -2409,14 +2409,15 @@
 	};
 
 	gpu_3d: gpu3d@38000000 {
-		compatible = "fsl,imx8-gpu";
+		compatible = "fsl,imx8-gpu","vivante,gc";
 		reg = <0x0 0x38000000 0x0 0x8000>;
 		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MP_CLK_GPU3D_ROOT>,
 			 <&clk IMX8MP_CLK_GPU3D_SHADER_CORE>,
 			 <&clk IMX8MP_CLK_GPU_AXI>,
 			 <&clk IMX8MP_CLK_GPU_AHB>;
-		clock-names = "core", "shader", "axi", "ahb";
+		// clock-names = "core", "shader", "axi", "ahb";
+		clock-names = "core", "shader", "bus", "reg";
 		assigned-clocks = <&clk IMX8MP_CLK_GPU3D_CORE>,
 				  <&clk IMX8MP_CLK_GPU3D_SHADER_CORE>,
 				  <&clk IMX8MP_CLK_GPU_AXI>,
@@ -2432,13 +2433,14 @@
 	};
 
 	gpu_2d: gpu2d@38008000 {
-		compatible = "fsl,imx8-gpu";
+		compatible = "fsl,imx8-gpu","vivante,gc";
 		reg = <0x0 0x38008000 0x0 0x8000>;
 		interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MP_CLK_GPU2D_ROOT>,
 			 <&clk IMX8MP_CLK_GPU_AXI>,
 			 <&clk IMX8MP_CLK_GPU_AHB>;
-		clock-names = "core", "axi", "ahb";
+		// clock-names = "core", "axi", "ahb";
+		clock-names = "core", "bus", "reg";
 		assigned-clocks = <&clk IMX8MP_CLK_GPU2D_CORE>,
 				  <&clk IMX8MP_CLK_GPU_AXI>,
 				  <&clk IMX8MP_CLK_GPU_AHB>;
@@ -2451,14 +2453,15 @@
 	};
 
 	ml_vipsi: vipsi@38500000 {
-		compatible = "fsl,imx8-gpu", "fsl,imx8-vipsi";
+		compatible = "fsl,imx8-gpu","fsl,imx8-vipsi","vivante,gc";
 		reg = <0x0 0x38500000 0x0 0x20000>;
 		interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MP_CLK_NPU_ROOT>,
 				<&clk IMX8MP_CLK_NPU_ROOT>,
 				<&clk IMX8MP_CLK_ML_AXI>,
 				<&clk IMX8MP_CLK_ML_AHB>;
-		clock-names = "core", "shader", "axi", "ahb";
+		// clock-names = "core", "shader", "axi", "ahb";
+		clock-names = "core", "shader", "bus", "reg";
 		assigned-clocks = <&clk IMX8MP_CLK_ML_CORE>,
 				  <&clk IMX8MP_CLK_ML_AXI>,
 				  <&clk IMX8MP_CLK_ML_AHB>;
@@ -2471,7 +2474,7 @@
 	};
 
 	mix_gpu_ml: mix_gpu_ml@40000000 {
-		compatible = "fsl,imx8mp-gpu", "fsl,imx8-gpu-ss";
+		compatible = "fsl,imx8mp-gpu", "fsl,imx8-gpu-ss","vivante,gc";
 		cores = <&gpu_3d>, <&ml_vipsi>, <&gpu_2d>;
 		reg = <0x0 0x40000000 0x0 0xC0000000>, <0x0 0x0 0x0 0x10000000>;
 		reg-names = "phys_baseaddr", "contiguous_mem";
