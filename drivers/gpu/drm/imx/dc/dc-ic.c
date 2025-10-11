@@ -24,16 +24,17 @@
 #define USERINTERRUPTCLEAR(n)	(0x50 + 4 * (n))
 #define USERINTERRUPTSTATUS(n)	(0x58 + 4 * (n))
 
-#define IRQ_COUNT	49
-#define IRQ_RESERVED	35
-#define REG_NUM		2
+#define IRQ_COUNT_MAX	49
+#define REG_NUM_MAX	2
 
 struct dc_ic_data {
 	struct regmap		*regs;
 	struct clk_bulk_data	*clk_axi;
 	int			clk_axi_count;
-	int			irq[IRQ_COUNT];
+	int			irq[IRQ_COUNT_MAX];
 	struct irq_domain	*domain;
+	unsigned int		reg_enable;
+	unsigned int		reg_status;
 };
 
 struct dc_ic_entry {
@@ -41,60 +42,85 @@ struct dc_ic_entry {
 	int irq;
 };
 
-static const struct regmap_range dc_ic_regmap_write_ranges[] = {
+struct dc_ic_subdev_match_data {
+	const struct regmap_config	*regmap_config;
+	unsigned int			reg_enable;
+	unsigned int			reg_clear;
+	unsigned int			reg_status;
+	unsigned int			reg_count;
+	unsigned int			irq_count;
+	unsigned long			unused_irq[REG_NUM_MAX];
+	int				reserved_irq;
+	bool				user_irq;
+};
+
+static const struct regmap_range dc_ic_regmap_write_ranges_imx8qxp[] = {
 	regmap_reg_range(USERINTERRUPTMASK(0), INTERRUPTCLEAR(1)),
 	regmap_reg_range(USERINTERRUPTENABLE(0), USERINTERRUPTCLEAR(1)),
 };
 
-static const struct regmap_access_table dc_ic_regmap_write_table = {
-	.yes_ranges = dc_ic_regmap_write_ranges,
-	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_write_ranges),
+static const struct regmap_access_table dc_ic_regmap_write_table_imx8qxp = {
+	.yes_ranges = dc_ic_regmap_write_ranges_imx8qxp,
+	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_write_ranges_imx8qxp),
 };
 
-static const struct regmap_range dc_ic_regmap_read_ranges[] = {
+static const struct regmap_range dc_ic_regmap_read_ranges_imx8qxp[] = {
 	regmap_reg_range(USERINTERRUPTMASK(0), INTERRUPTENABLE(1)),
 	regmap_reg_range(INTERRUPTSTATUS(0), INTERRUPTSTATUS(1)),
 	regmap_reg_range(USERINTERRUPTENABLE(0), USERINTERRUPTENABLE(1)),
 	regmap_reg_range(USERINTERRUPTSTATUS(0), USERINTERRUPTSTATUS(1)),
 };
 
-static const struct regmap_access_table dc_ic_regmap_read_table = {
-	.yes_ranges = dc_ic_regmap_read_ranges,
-	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_read_ranges),
+static const struct regmap_access_table dc_ic_regmap_read_table_imx8qxp = {
+	.yes_ranges = dc_ic_regmap_read_ranges_imx8qxp,
+	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_read_ranges_imx8qxp),
 };
 
-static const struct regmap_range dc_ic_regmap_volatile_ranges[] = {
+static const struct regmap_range dc_ic_regmap_volatile_ranges_imx8qxp[] = {
 	regmap_reg_range(INTERRUPTPRESET(0), INTERRUPTCLEAR(1)),
 	regmap_reg_range(USERINTERRUPTPRESET(0), USERINTERRUPTCLEAR(1)),
 };
 
-static const struct regmap_access_table dc_ic_regmap_volatile_table = {
-	.yes_ranges = dc_ic_regmap_volatile_ranges,
-	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_volatile_ranges),
+static const struct regmap_access_table dc_ic_regmap_volatile_table_imx8qxp = {
+	.yes_ranges = dc_ic_regmap_volatile_ranges_imx8qxp,
+	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_volatile_ranges_imx8qxp),
 };
 
-static const struct regmap_config dc_ic_regmap_config = {
+static const struct regmap_config dc_ic_regmap_config_imx8qxp = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
 	.fast_io = true,
-	.wr_table = &dc_ic_regmap_write_table,
-	.rd_table = &dc_ic_regmap_read_table,
-	.volatile_table = &dc_ic_regmap_volatile_table,
+	.wr_table = &dc_ic_regmap_write_table_imx8qxp,
+	.rd_table = &dc_ic_regmap_read_table_imx8qxp,
+	.volatile_table = &dc_ic_regmap_volatile_table_imx8qxp,
 	.max_register = USERINTERRUPTSTATUS(1),
+};
+
+static const struct dc_ic_subdev_match_data dc_ic_match_data_imx8qxp = {
+	.regmap_config = &dc_ic_regmap_config_imx8qxp,
+	.reg_enable = USERINTERRUPTENABLE(0),
+	.reg_clear = USERINTERRUPTCLEAR(0),
+	.reg_status = USERINTERRUPTSTATUS(0),
+	.reg_count = 2,
+	.irq_count = 49,
+	.user_irq = true,
+	.unused_irq = { 0x00000000, 0xfffe0008 },
+	.reserved_irq = 35,
 };
 
 static void dc_ic_irq_handler(struct irq_desc *desc)
 {
 	struct dc_ic_entry *entry = irq_desc_get_handler_data(desc);
 	struct dc_ic_data *data = entry->data;
-	unsigned int status, enable;
+	unsigned int status, enable, offset;
 	unsigned int virq;
 
 	chained_irq_enter(irq_desc_get_chip(desc), desc);
 
-	regmap_read(data->regs, USERINTERRUPTSTATUS(entry->irq / 32), &status);
-	regmap_read(data->regs, USERINTERRUPTENABLE(entry->irq / 32), &enable);
+	offset = entry->irq / 32;
+	regmap_read(data->regs, data->reg_status + 4 * offset, &status);
+	regmap_read(data->regs, data->reg_enable + 4 * offset, &enable);
 
 	status &= enable;
 
@@ -107,11 +133,10 @@ static void dc_ic_irq_handler(struct irq_desc *desc)
 	chained_irq_exit(irq_desc_get_chip(desc), desc);
 }
 
-static const unsigned long unused_irq[REG_NUM] = {0x00000000, 0xfffe0008};
-
 static int dc_ic_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct dc_ic_subdev_match_data *dc_ic_match_data = device_get_match_data(dev);
 	struct irq_chip_generic *gc;
 	struct dc_ic_entry *entry;
 	struct irq_chip_type *ct;
@@ -123,7 +148,7 @@ static int dc_ic_probe(struct platform_device *pdev)
 	if (!data)
 		return -ENOMEM;
 
-	entry = devm_kcalloc(dev, IRQ_COUNT, sizeof(*entry), GFP_KERNEL);
+	entry = devm_kcalloc(dev, dc_ic_match_data->irq_count, sizeof(*entry), GFP_KERNEL);
 	if (!entry)
 		return -ENOMEM;
 
@@ -133,7 +158,7 @@ static int dc_ic_probe(struct platform_device *pdev)
 		return PTR_ERR(base);
 	}
 
-	data->regs = devm_regmap_init_mmio(dev, base, &dc_ic_regmap_config);
+	data->regs = devm_regmap_init_mmio(dev, base, dc_ic_match_data->regmap_config);
 	if (IS_ERR(data->regs))
 		return PTR_ERR(data->regs);
 
@@ -143,9 +168,12 @@ static int dc_ic_probe(struct platform_device *pdev)
 				     "failed to get AXI clock\n");
 	data->clk_axi_count = ret;
 
-	for (i = 0; i < IRQ_COUNT; i++) {
+	data->reg_enable = dc_ic_match_data->reg_enable;
+	data->reg_status = dc_ic_match_data->reg_status;
+
+	for (i = 0; i < dc_ic_match_data->irq_count; i++) {
 		/* skip the reserved IRQ */
-		if (i == IRQ_RESERVED)
+		if (i == dc_ic_match_data->reserved_irq)
 			continue;
 
 		ret = platform_get_irq(pdev, i);
@@ -165,18 +193,22 @@ static int dc_ic_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	for (i = 0; i < REG_NUM; i++) {
+	for (i = 0; i < dc_ic_match_data->reg_count; i++) {
 		/* mask and clear all interrupts */
+		regmap_write(data->regs, dc_ic_match_data->reg_enable + (4 * i), 0x0);
+		regmap_write(data->regs, dc_ic_match_data->reg_clear + (4 * i), 0xffffffff);
+
+		if (!dc_ic_match_data->user_irq)
+			continue;
+
 		regmap_write(data->regs, USERINTERRUPTENABLE(i), 0x0);
-		regmap_write(data->regs, INTERRUPTENABLE(i), 0x0);
 		regmap_write(data->regs, USERINTERRUPTCLEAR(i), 0xffffffff);
-		regmap_write(data->regs, INTERRUPTCLEAR(i), 0xffffffff);
 
 		/* set all interrupts to user mode */
 		regmap_write(data->regs, USERINTERRUPTMASK(i), 0xffffffff);
 	}
 
-	data->domain = irq_domain_add_linear(dev->of_node, IRQ_COUNT,
+	data->domain = irq_domain_add_linear(dev->of_node, dc_ic_match_data->irq_count,
 					     &irq_generic_chip_ops, data);
 	if (!data->domain) {
 		dev_err(dev, "failed to create IRQ domain\n");
@@ -194,21 +226,21 @@ static int dc_ic_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	for (i = 0; i < IRQ_COUNT; i += 32) {
+	for (i = 0; i < dc_ic_match_data->irq_count; i += 32) {
 		gc = irq_get_domain_generic_chip(data->domain, i);
 		gc->reg_base = base;
-		gc->unused = unused_irq[i / 32];
+		gc->unused = dc_ic_match_data->unused_irq[i / 32];
 		ct = gc->chip_types;
 		ct->chip.irq_ack = irq_gc_ack_set_bit;
 		ct->chip.irq_mask = irq_gc_mask_clr_bit;
 		ct->chip.irq_unmask = irq_gc_mask_set_bit;
-		ct->regs.ack = USERINTERRUPTCLEAR(i / 32);
-		ct->regs.mask = USERINTERRUPTENABLE(i / 32);
+		ct->regs.ack = dc_ic_match_data->reg_clear + (i / 8);
+		ct->regs.mask = dc_ic_match_data->reg_enable + (i / 8);
 	}
 
-	for (i = 0; i < IRQ_COUNT; i++) {
+	for (i = 0; i < dc_ic_match_data->irq_count; i++) {
 		/* skip the reserved IRQ */
-		if (i == IRQ_RESERVED)
+		if (i == dc_ic_match_data->reserved_irq)
 			continue;
 
 		data->irq[i] = irq_of_parse_and_map(dev->of_node, i);
@@ -225,11 +257,13 @@ static int dc_ic_probe(struct platform_device *pdev)
 
 static void dc_ic_remove(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	const struct dc_ic_subdev_match_data *dc_ic_match_data = device_get_match_data(dev);
 	struct dc_ic_data *data = dev_get_drvdata(&pdev->dev);
 	int i;
 
-	for (i = 0; i < IRQ_COUNT; i++) {
-		if (i == IRQ_RESERVED)
+	for (i = 0; i < dc_ic_match_data->irq_count; i++) {
+		if (i == dc_ic_match_data->reserved_irq)
 			continue;
 
 		irq_set_chained_handler_and_data(data->irq[i], NULL, NULL);
@@ -268,7 +302,7 @@ static const struct dev_pm_ops dc_ic_pm_ops = {
 };
 
 static const struct of_device_id dc_ic_dt_ids[] = {
-	{ .compatible = "fsl,imx8qxp-dc-intc", },
+	{ .compatible = "fsl,imx8qxp-dc-intc", .data = &dc_ic_match_data_imx8qxp },
 	{ /* sentinel */ }
 };
 
