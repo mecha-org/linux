@@ -30,7 +30,8 @@
 
 struct dc_priv {
 	struct drm_device *drm;
-	struct clk *clk_cfg;
+	struct clk_bulk_data *clk_cfg;
+	int clk_cfg_count;
 };
 
 DEFINE_DRM_GEM_DMA_FOPS(dc_drm_driver_fops);
@@ -162,10 +163,11 @@ static int dc_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 
-	priv->clk_cfg = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(priv->clk_cfg))
-		return dev_err_probe(&pdev->dev, PTR_ERR(priv->clk_cfg),
+	ret = devm_clk_bulk_get_all(&pdev->dev, &priv->clk_cfg);
+	if (ret < 0)
+		return dev_err_probe(&pdev->dev, ret,
 				     "failed to get cfg clock\n");
+	priv->clk_cfg_count = ret;
 
 	dev_set_drvdata(&pdev->dev, priv);
 
@@ -200,7 +202,7 @@ static int dc_runtime_suspend(struct device *dev)
 {
 	struct dc_priv *priv = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(priv->clk_cfg);
+	clk_bulk_disable_unprepare(priv->clk_cfg_count, priv->clk_cfg);
 
 	return 0;
 }
@@ -210,7 +212,7 @@ static int dc_runtime_resume(struct device *dev)
 	struct dc_priv *priv = dev_get_drvdata(dev);
 	int ret;
 
-	ret = clk_prepare_enable(priv->clk_cfg);
+	ret = clk_bulk_prepare_enable(priv->clk_cfg_count, priv->clk_cfg);
 	if (ret)
 		dev_err(dev, "failed to enable cfg clock: %d\n", ret);
 

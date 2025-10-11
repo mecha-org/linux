@@ -67,7 +67,8 @@ struct dc_lb {
 
 struct dc_pe {
 	struct device *dev;
-	struct clk *clk_axi;
+	struct clk_bulk_data *clk_axi;
+	int clk_axi_count;
 	struct dc_cf *cf_safe[DC_DISPLAYS];
 	struct dc_cf *cf_cont[DC_DISPLAYS];
 	struct dc_ed *ed_safe[DC_DISPLAYS];

@@ -26,10 +26,10 @@ static int dc_pe_bind(struct device *dev, struct device *master, void *data)
 	if (!pe)
 		return -ENOMEM;
 
-	pe->clk_axi = devm_clk_get(dev, NULL);
-	if (IS_ERR(pe->clk_axi))
-		return dev_err_probe(dev, PTR_ERR(pe->clk_axi),
-				     "failed to get AXI clock\n");
+	ret = devm_clk_bulk_get_all(dev, &pe->clk_axi);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "failed to get AXI clock\n");
+	pe->clk_axi_count = ret;
 
 	pe->dev = dev;
 
@@ -98,7 +98,7 @@ static int dc_pe_runtime_suspend(struct device *dev)
 {
 	struct dc_pe *pe = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(pe->clk_axi);
+	clk_bulk_disable_unprepare(pe->clk_axi_count, pe->clk_axi);
 
 	return 0;
 }
@@ -108,7 +108,7 @@ static int dc_pe_runtime_resume(struct device *dev)
 	struct dc_pe *pe = dev_get_drvdata(dev);
 	int i, ret;
 
-	ret = clk_prepare_enable(pe->clk_axi);
+	ret = clk_bulk_prepare_enable(pe->clk_axi_count, pe->clk_axi);
 	if (ret) {
 		dev_err(dev, "failed to enable AXI clock: %d\n", ret);
 		return ret;
