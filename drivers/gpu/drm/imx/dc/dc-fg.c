@@ -91,6 +91,7 @@ enum dc_fg_dm {
 static const struct dc_subdev_info dc_fg_info[] = {
 	{ .reg_start = 0x5618b800, .id = 0, },
 	{ .reg_start = 0x5618d400, .id = 1, },
+	{ /* sentinel */ },
 };
 
 static const struct regmap_range dc_fg_regmap_write_ranges[] = {
@@ -325,7 +326,7 @@ static int dc_fg_bind(struct device *dev, struct device *master, void *data)
 		return dev_err_probe(dev, PTR_ERR(fg->clk_disp),
 				     "failed to get display clock\n");
 
-	id = dc_subdev_get_id(dc_fg_info, ARRAY_SIZE(dc_fg_info), res);
+	id = dc_subdev_get_id(dc_fg_info, res);
 	if (id < 0) {
 		dev_err(dev, "failed to get instance number: %d\n", id);
 		return id;

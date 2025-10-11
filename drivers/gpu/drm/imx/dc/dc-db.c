@@ -74,6 +74,7 @@ enum dc_db_shadow_sel {
 static const struct dc_subdev_info dc_db_info[] = {
 	{ .reg_start = 0x4b6a0000, .id = 0, },
 	{ .reg_start = 0x4b720000, .id = 1, },
+	{ /* sentinel */ },
 };
 
 static const struct regmap_range dc_db_regmap_ranges[] = {
@@ -176,7 +177,7 @@ static int dc_db_bind(struct device *dev, struct device *master, void *data)
 	if (IS_ERR(db->reg_cfg))
 		return PTR_ERR(db->reg_cfg);
 
-	db->id = dc_subdev_get_id(dc_db_info, ARRAY_SIZE(dc_db_info), res_cfg);
+	db->id = dc_subdev_get_id(dc_db_info, res_cfg);
 	if (db->id < 0) {
 		dev_err(dev, "failed to get instance number: %d\n", db->id);
 		return db->id;

@@ -39,6 +39,7 @@ static const struct dc_subdev_info dc_ed_info[] = {
 	{ .reg_start = 0x56180a00, .id = 1, },
 	{ .reg_start = 0x561809c0, .id = 4, },
 	{ .reg_start = 0x56180a40, .id = 5, },
+	{ /* sentinel */ },
 };
 
 static const struct regmap_range dc_ed_pec_regmap_write_ranges[] = {
@@ -225,7 +226,7 @@ static int dc_ed_bind(struct device *dev, struct device *master, void *data)
 
 	ed->dev = dev;
 
-	id = dc_subdev_get_id(dc_ed_info, ARRAY_SIZE(dc_ed_info), res_pec);
+	id = dc_subdev_get_id(dc_ed_info, res_pec);
 	if (id < 0) {
 		dev_err(dev, "failed to get instance number: %d\n", id);
 		return id;

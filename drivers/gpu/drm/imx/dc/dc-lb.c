@@ -75,6 +75,7 @@ static const struct dc_subdev_info dc_lb_info[] = {
 	{ .reg_start = 0x56180bc0, .id = 1, },
 	{ .reg_start = 0x56180be0, .id = 2, },
 	{ .reg_start = 0x56180c00, .id = 3, },
+	{ /* sentinel */ },
 };
 
 static const struct regmap_range dc_lb_pec_regmap_access_ranges[] = {
@@ -272,7 +273,7 @@ static int dc_lb_bind(struct device *dev, struct device *master, void *data)
 	if (IS_ERR(lb->reg_cfg))
 		return PTR_ERR(lb->reg_cfg);
 
-	lb->id = dc_subdev_get_id(dc_lb_info, ARRAY_SIZE(dc_lb_info), res_pec);
+	lb->id = dc_subdev_get_id(dc_lb_info, res_pec);
 	if (lb->id < 0) {
 		dev_err(dev, "failed to get instance number: %d\n", lb->id);
 		return lb->id;
