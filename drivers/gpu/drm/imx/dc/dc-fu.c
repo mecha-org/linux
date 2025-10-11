@@ -113,13 +113,13 @@ void dc_fu_shdldreq_sticky(struct dc_fu *fu, u8 layer_mask)
 
 static inline void dc_fu_set_linemode(struct dc_fu *fu, enum dc_linemode mode)
 {
-	regmap_write_bits(fu->reg_cfg, BURSTBUFFERMANAGEMENT, LINEMODE_MASK,
+	regmap_write_bits(fu->reg_cfg, fu->reg_burstbuffermanagement, LINEMODE_MASK,
 			  mode);
 }
 
 static inline void dc_fu_set_numbuffers(struct dc_fu *fu, unsigned int num)
 {
-	regmap_write_bits(fu->reg_cfg, BURSTBUFFERMANAGEMENT,
+	regmap_write_bits(fu->reg_cfg, fu->reg_burstbuffermanagement,
 			  SETNUMBUFFERS_MASK, SETNUMBUFFERS(num));
 }
 
@@ -132,7 +132,7 @@ static void dc_fu_set_burstlength(struct dc_fu *fu, dma_addr_t baddr)
 	burst_size = min(burst_size, 128U);
 	burst_length = burst_size / 8;
 
-	regmap_write_bits(fu->reg_cfg, BURSTBUFFERMANAGEMENT,
+	regmap_write_bits(fu->reg_cfg, fu->reg_burstbuffermanagement,
 			  SETBURSTLENGTH_MASK, SETBURSTLENGTH(burst_length));
 }
 

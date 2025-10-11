@@ -105,11 +105,15 @@ struct dc_fu {
 	u32 reg_baseaddr[DC_FETCHUNIT_FRAC_NUM];
 	u32 reg_sourcebufferattributes[DC_FETCHUNIT_FRAC_NUM];
 	u32 reg_sourcebufferdimension[DC_FETCHUNIT_FRAC_NUM];
+	u32 reg_colorcomponentbits[DC_FETCHUNIT_FRAC_NUM];
+	u32 reg_colorcomponentshift[DC_FETCHUNIT_FRAC_NUM];
 	u32 reg_layeroffset[DC_FETCHUNIT_FRAC_NUM];
 	u32 reg_clipwindowoffset[DC_FETCHUNIT_FRAC_NUM];
 	u32 reg_clipwindowdimensions[DC_FETCHUNIT_FRAC_NUM];
 	u32 reg_constantcolor[DC_FETCHUNIT_FRAC_NUM];
 	u32 reg_layerproperty[DC_FETCHUNIT_FRAC_NUM];
+	u32 reg_burstbuffermanagement;
+	u32 reg_framedimensions;
 	unsigned int id;
 	enum dc_link_id link_id;
 	struct dc_fu_ops ops;
