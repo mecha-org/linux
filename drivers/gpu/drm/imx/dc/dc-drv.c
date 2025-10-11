@@ -7,6 +7,8 @@
 #include <linux/component.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
+#include <linux/mfd/syscon.h>
+#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -28,8 +30,15 @@
 #include "dc-drv.h"
 #include "dc-pe.h"
 
+#define DISPLAY_ENGINES_CLOCK_CONTROL	0x00
+#define  DISP_CLK1_SEL			GENMASK(3, 2)
+#define  DISP_CLK0_SEL			GENMASK(1, 0)
+#define  DISP_CLK_SEL_CCM		0
+#define  DISP_CLK_SEL_LVDS		2
+
 struct dc_priv {
 	struct drm_device *drm;
+	struct regmap *regmap;
 	struct clk_bulk_data *clk_cfg;
 	int clk_cfg_count;
 };
@@ -118,6 +127,17 @@ static int dc_drm_bind(struct device *dev)
 	if (ret)
 		return ret;
 
+	if (priv->regmap) {
+		regmap_write_bits(priv->regmap, DISPLAY_ENGINES_CLOCK_CONTROL,
+				  DISP_CLK0_SEL | DISP_CLK1_SEL,
+				  FIELD_PREP(DISP_CLK0_SEL,
+				             ((dc_drm->encoder[0].encoder_type == DRM_MODE_ENCODER_DSI) ?
+					     DISP_CLK_SEL_CCM : DISP_CLK_SEL_LVDS)) |
+				  FIELD_PREP(DISP_CLK1_SEL,
+				             ((dc_drm->encoder[1].encoder_type == DRM_MODE_ENCODER_DSI) ?
+					     DISP_CLK_SEL_CCM : DISP_CLK_SEL_LVDS)));
+	}
+
 	ret = drm_dev_register(drm, 0);
 	if (ret) {
 		dev_err(dev, "failed to register drm device: %d\n", ret);
@@ -156,6 +176,7 @@ static const struct component_master_ops dc_drm_ops = {
 static int dc_probe(struct platform_device *pdev)
 {
 	struct component_match *match = NULL;
+	struct device_node *np = pdev->dev.of_node;
 	struct dc_priv *priv;
 	int ret;
 
@@ -168,6 +189,12 @@ static int dc_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, ret,
 				     "failed to get cfg clock\n");
 	priv->clk_cfg_count = ret;
+
+	if (of_device_is_compatible(np, "fsl,imx95-dc")) {
+		priv->regmap = syscon_regmap_lookup_by_phandle(np, "fsl,syscon");
+		if (IS_ERR(priv->regmap))
+			return dev_err_probe(&pdev->dev, PTR_ERR(priv->regmap), "failed to get regmap\n");
+	}
 
 	dev_set_drvdata(&pdev->dev, priv);
 
