@@ -40,6 +40,8 @@ struct dc_drm_device {
 	struct dc_ed *ed_safe[DC_DISPLAYS];
 	/** @ed_cont: extdst list(content stream) */
 	struct dc_ed *ed_cont[DC_DISPLAYS];
+	/** @lb: domainblend list */
+	struct dc_db *db[DC_DISPLAYS];
 	/** @fg: framegen list */
 	struct dc_fg *fg[DC_DISPLAYS];
 	/** @fu_disp: fetchunit list(used by display engine) */
@@ -71,6 +73,7 @@ void dc_kms_uninit(struct dc_drm_device *dc_drm);
 int dc_plane_init(struct dc_drm_device *dc_drm, struct dc_plane *dc_plane);
 
 extern struct platform_driver dc_cf_driver;
+extern struct platform_driver dc_db_driver;
 extern struct platform_driver dc_de_driver;
 extern struct platform_driver dc_ed_driver;
 extern struct platform_driver dc_fg_driver;

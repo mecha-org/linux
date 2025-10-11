@@ -48,6 +48,8 @@ struct dc_crtc {
 	struct dc_ed *ed_cont;
 	/** @ed_safe: safety stream extdst */
 	struct dc_ed *ed_safe;
+	/** @db: domain blend */
+	struct dc_db *db;
 	/** @fg: framegen */
 	struct dc_fg *fg;
 	/**
@@ -122,6 +124,8 @@ struct dc_plane {
 	struct dc_fu *fu;
 	/** @cf: content stream constframe */
 	struct dc_cf *cf;
+	/** @db: domainblend */
+	struct dc_db *db;
 	/** @lb: layerblend */
 	struct dc_lb *lb;
 	/** @ed: content stream extdst */

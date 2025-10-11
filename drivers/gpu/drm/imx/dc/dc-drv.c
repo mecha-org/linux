@@ -262,6 +262,7 @@ static struct platform_driver dc_driver = {
 
 static struct platform_driver * const dc_drivers[] = {
 	&dc_cf_driver,
+	&dc_db_driver,
 	&dc_de_driver,
 	&dc_ed_driver,
 	&dc_fg_driver,
