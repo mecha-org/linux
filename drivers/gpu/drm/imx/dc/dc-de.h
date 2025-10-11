@@ -32,6 +32,7 @@ struct dc_fg {
 struct dc_tc {
 	struct device *dev;
 	struct regmap *reg;
+	bool need_config;
 };
 
 struct dc_de {
