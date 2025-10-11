@@ -48,13 +48,20 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,imx8qxp-dc
+    enum:
+      - fsl,imx8qxp-dc
+      - fsl,imx95-dc
 
   reg:
     maxItems: 1
 
   clocks:
-    maxItems: 1
+    minItems: 1
+    maxItems: 6
+
+  clock-names:
+    minItems: 1
+    maxItems: 6
 
   resets:
     maxItems: 2
@@ -68,10 +75,15 @@ properties:
     maxItems: 1
 
   "#address-cells":
-    const: 1
+    enum: [1, 2]
 
   "#size-cells":
-    const: 1
+    enum: [1, 2]
+
+  fsl,syscon:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: |
+      A phandle which points to Control and Status Registers (CSR) module.
 
   ranges: true
 
@@ -90,7 +102,9 @@ patternProperties:
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-display-engine
+        enum:
+          - fsl,imx8qxp-dc-display-engine
+          - fsl,imx95-dc-display-engine
 
   "^interrupt-controller@[0-9a-f]+$":
     type: object
@@ -98,7 +112,9 @@ patternProperties:
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-intc
+        enum:
+          - fsl,imx8qxp-dc-intc
+          - fsl,imx95-dc-intc
 
   "^pixel-engine@[0-9a-f]+$":
     type: object
@@ -106,7 +122,11 @@ patternProperties:
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-pixel-engine
+        oneOf:
+          - const: fsl,imx8qxp-dc-pixel-engine
+          - items:
+              - const: fsl,imx95-dc-pixel-engine
+              - const: fsl,imx8qxp-dc-pixel-engine
 
   "^pmu@[0-9a-f]+$":
     type: object
@@ -124,6 +144,25 @@ required:
   - "#address-cells"
   - "#size-cells"
   - ranges
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-dc
+    then:
+      properties:
+        "#address-cells":
+          const: 2
+        "#size-cells":
+          const: 2
+    else:
+      properties:
+        "#address-cells":
+          const: 1
+        "#size-cells":
+          const: 1
 
 additionalProperties: false
 
