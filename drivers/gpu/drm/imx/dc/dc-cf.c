@@ -122,11 +122,11 @@ static int dc_cf_bind(struct device *dev, struct device *master, void *data)
 		dc_drm->cf_cont[1] = cf;
 		break;
 	case 4:
-		cf->link = LINK_ID_CONSTFRAME4;
+		cf->link = LINK_ID_CONSTFRAME4_MX8QXP;
 		dc_drm->cf_safe[0] = cf;
 		break;
 	case 5:
-		cf->link = LINK_ID_CONSTFRAME5;
+		cf->link = LINK_ID_CONSTFRAME5_MX8QXP;
 		dc_drm->cf_safe[1] = cf;
 		break;
 	}

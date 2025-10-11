@@ -123,8 +123,8 @@ static const enum dc_link_id prim_sels[] = {
 	LINK_ID_NONE,
 	LINK_ID_CONSTFRAME0,
 	LINK_ID_CONSTFRAME1,
-	LINK_ID_CONSTFRAME4,
-	LINK_ID_CONSTFRAME5,
+	LINK_ID_CONSTFRAME4_MX8QXP,
+	LINK_ID_CONSTFRAME5_MX8QXP,
 	/*
 	 * special options:
 	 * layerblend(n) has n special options,
@@ -132,10 +132,10 @@ static const enum dc_link_id prim_sels[] = {
 	 * layerblend3 has 3 special options -
 	 * layerblend0/1/2.
 	 */
-	LINK_ID_LAYERBLEND0,
-	LINK_ID_LAYERBLEND1,
-	LINK_ID_LAYERBLEND2,
-	LINK_ID_LAYERBLEND3,
+	LINK_ID_LAYERBLEND0_MX8QXP,
+	LINK_ID_LAYERBLEND1_MX8QXP,
+	LINK_ID_LAYERBLEND2_MX8QXP,
+	LINK_ID_LAYERBLEND3_MX8QXP,
 };
 
 static const enum dc_link_id sec_sels[] = {
@@ -280,7 +280,7 @@ static int dc_lb_bind(struct device *dev, struct device *master, void *data)
 	}
 
 	lb->dev = dev;
-	lb->link = LINK_ID_LAYERBLEND0 + lb->id;
+	lb->link = LINK_ID_LAYERBLEND0_MX8QXP + lb->id;
 
 	dc_drm->lb[lb->id] = lb;
 
