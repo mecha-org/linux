@@ -14,8 +14,6 @@
 #include "dc-drv.h"
 #include "dc-fu.h"
 
-#define FRAC_OFFSET			0x28
-
 #define BURSTBUFFERMANAGEMENT		0xc
 #define BASEADDRESS			0x10
 #define SOURCEBUFFERATTRIBUTES		0x14
@@ -27,35 +25,55 @@
 #define CLIPWINDOWDIMENSIONS		0x2c
 #define CONSTANTCOLOR			0x30
 #define LAYERPROPERTY			0x34
-#define FRAMEDIMENSIONS			0x150
+#define FRAMEDIMENSIONS_IMX8QXP		0x150
 
 struct dc_fl {
 	struct dc_fu fu;
 };
 
-static const struct dc_subdev_info dc_fl_info[] = {
+struct dc_fl_subdev_match_data {
+	const struct regmap_config	*regmap_config;
+	unsigned int			reg_offset_bbm;
+	unsigned int			reg_offset_base;
+	unsigned int			reg_offset_rest;
+	unsigned int			reg_framedimensions;
+	unsigned int			reg_frac_offset;
+	const struct dc_subdev_info	*info;
+};
+
+static const struct dc_subdev_info dc_fl_info_imx8qxp[] = {
 	{ .reg_start = 0x56180ac0, .id = 0, },
 	{ /* sentinel */ },
 };
 
-static const struct regmap_range dc_fl_regmap_ranges[] = {
-	regmap_reg_range(STATICCONTROL, FRAMEDIMENSIONS),
+static const struct regmap_range dc_fl_regmap_ranges_imx8qxp[] = {
+	regmap_reg_range(STATICCONTROL, FRAMEDIMENSIONS_IMX8QXP),
 };
 
-static const struct regmap_access_table dc_fl_regmap_access_table = {
-	.yes_ranges = dc_fl_regmap_ranges,
-	.n_yes_ranges = ARRAY_SIZE(dc_fl_regmap_ranges),
+static const struct regmap_access_table dc_fl_regmap_access_table_imx8qxp = {
+	.yes_ranges = dc_fl_regmap_ranges_imx8qxp,
+	.n_yes_ranges = ARRAY_SIZE(dc_fl_regmap_ranges_imx8qxp),
 };
 
-static const struct regmap_config dc_fl_cfg_regmap_config = {
+static const struct regmap_config dc_fl_cfg_regmap_config_imx8qxp = {
 	.name = "cfg",
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
 	.fast_io = true,
-	.wr_table = &dc_fl_regmap_access_table,
-	.rd_table = &dc_fl_regmap_access_table,
-	.max_register = FRAMEDIMENSIONS,
+	.wr_table = &dc_fl_regmap_access_table_imx8qxp,
+	.rd_table = &dc_fl_regmap_access_table_imx8qxp,
+	.max_register = FRAMEDIMENSIONS_IMX8QXP,
+};
+
+static const struct dc_fl_subdev_match_data dc_fl_match_data_imx8qxp = {
+	.regmap_config = &dc_fl_cfg_regmap_config_imx8qxp,
+	.reg_offset_bbm = 0,
+	.reg_offset_base = 0,
+	.reg_offset_rest = 0,
+	.reg_framedimensions = FRAMEDIMENSIONS_IMX8QXP,
+	.reg_frac_offset = 0x28,
+	.info = dc_fl_info_imx8qxp,
 };
 
 static void dc_fl_set_fmt(struct dc_fu *fu, enum dc_fu_frac frac,
@@ -98,9 +116,11 @@ static void dc_fl_set_ops(struct dc_fu *fu)
 
 static int dc_fl_bind(struct device *dev, struct device *master, void *data)
 {
+	const struct dc_fl_subdev_match_data *dc_fl_match_data = device_get_match_data(dev);
+	const struct dc_subdev_info *dc_fl_info = dc_fl_match_data->info;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dc_drm_device *dc_drm = data;
-	unsigned int off_base, off_regs;
+	unsigned int off, off_base, off_regs;
 	struct resource *res_pec;
 	void __iomem *base_cfg;
 	struct dc_fl *fl;
@@ -120,7 +140,7 @@ static int dc_fl_bind(struct device *dev, struct device *master, void *data)
 		return PTR_ERR(base_cfg);
 
 	fu->reg_cfg = devm_regmap_init_mmio(dev, base_cfg,
-					    &dc_fl_cfg_regmap_config);
+					    dc_fl_match_data->regmap_config);
 	if (IS_ERR(fu->reg_cfg))
 		return PTR_ERR(fu->reg_cfg);
 
@@ -133,9 +153,10 @@ static int dc_fl_bind(struct device *dev, struct device *master, void *data)
 	fu->link_id = LINK_ID_FETCHLAYER0;
 	fu->id = DC_FETCHUNIT_FL0;
 	for (i = 0; i < DC_FETCHUNIT_FRAC_NUM; i++) {
-		off_base = i * FRAC_OFFSET;
+		off = i * dc_fl_match_data->reg_frac_offset;
+		off_base = off + dc_fl_match_data->reg_offset_base;
 		fu->reg_baseaddr[i]		  = BASEADDRESS + off_base;
-		off_regs = i * FRAC_OFFSET;
+		off_regs = off + dc_fl_match_data->reg_offset_rest;
 		fu->reg_sourcebufferattributes[i] = SOURCEBUFFERATTRIBUTES + off_regs;
 		fu->reg_sourcebufferdimension[i]  = SOURCEBUFFERDIMENSION + off_regs;
 		fu->reg_colorcomponentbits[i]     = COLORCOMPONENTBITS + off_regs;
@@ -146,8 +167,8 @@ static int dc_fl_bind(struct device *dev, struct device *master, void *data)
 		fu->reg_constantcolor[i]	  = CONSTANTCOLOR + off_regs;
 		fu->reg_layerproperty[i]	  = LAYERPROPERTY + off_regs;
 	}
-	fu->reg_burstbuffermanagement = BURSTBUFFERMANAGEMENT;
-	fu->reg_framedimensions = FRAMEDIMENSIONS;
+	fu->reg_burstbuffermanagement = BURSTBUFFERMANAGEMENT + dc_fl_match_data->reg_offset_bbm;
+	fu->reg_framedimensions = dc_fl_match_data->reg_framedimensions;
 	snprintf(fu->name, sizeof(fu->name), "FetchLayer%d", id);
 
 	dc_fl_set_ops(fu);
@@ -179,7 +200,7 @@ static void dc_fl_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dc_fl_dt_ids[] = {
-	{ .compatible = "fsl,imx8qxp-dc-fetchlayer" },
+	{ .compatible = "fsl,imx8qxp-dc-fetchlayer", .data = &dc_fl_match_data_imx8qxp },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_fl_dt_ids);
