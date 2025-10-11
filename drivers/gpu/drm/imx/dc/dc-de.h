@@ -26,6 +26,7 @@ struct dc_fg {
 	struct device *dev;
 	struct regmap *reg;
 	struct clk *clk_disp;
+	unsigned int reg_offset;
 };
 
 struct dc_tc {
