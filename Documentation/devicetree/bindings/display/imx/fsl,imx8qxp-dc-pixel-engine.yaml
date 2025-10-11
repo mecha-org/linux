@@ -17,19 +17,28 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,imx8qxp-dc-pixel-engine
+    oneOf:
+      - const: fsl,imx8qxp-dc-pixel-engine
+      - items:
+          - const: fsl,imx95-dc-pixel-engine
+          - const: fsl,imx8qxp-dc-pixel-engine
 
   reg:
     maxItems: 1
 
   clocks:
-    maxItems: 1
+    minItems: 1
+    maxItems: 2
+
+  clock-names:
+    minItems: 1
+    maxItems: 2
 
   "#address-cells":
-    const: 1
+    enum: [1, 2]
 
   "#size-cells":
-    const: 1
+    enum: [1, 2]
 
   ranges: true
 
@@ -48,7 +57,9 @@ patternProperties:
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-constframe
+        enum:
+          - fsl,imx8qxp-dc-constframe
+          - fsl,imx95-dc-constframe
 
   "^extdst@[0-9a-f]+$":
     type: object
@@ -56,7 +67,9 @@ patternProperties:
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-extdst
+        enum:
+          - fsl,imx8qxp-dc-extdst
+          - fsl,imx95-dc-extdst
 
   "^fetchdecode@[0-9a-f]+$":
     type: object
@@ -80,7 +93,9 @@ patternProperties:
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-fetchlayer
+        enum:
+          - fsl,imx8qxp-dc-fetchlayer
+          - fsl,imx95-dc-fetchlayer
 
   "^fetchwarp@[0-9a-f]+$":
     type: object
@@ -104,7 +119,9 @@ patternProperties:
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-layerblend
+        enum:
+          - fsl,imx8qxp-dc-layerblend
+          - fsl,imx95-dc-layerblend
 
   "^matrix@[0-9a-f]+$":
     type: object
@@ -137,6 +154,25 @@ required:
   - "#address-cells"
   - "#size-cells"
   - ranges
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-dc-pixel-engine
+    then:
+      properties:
+        "#address-cells":
+          const: 2
+        "#size-cells":
+          const: 2
+    else:
+      properties:
+        "#address-cells":
+          const: 1
+        "#size-cells":
+          const: 1
 
 additionalProperties: false
 

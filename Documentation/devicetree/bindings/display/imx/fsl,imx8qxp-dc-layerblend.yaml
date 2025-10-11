@@ -13,7 +13,9 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,imx8qxp-dc-layerblend
+    enum:
+      - fsl,imx8qxp-dc-layerblend
+      - fsl,imx95-dc-layerblend
 
   reg:
     maxItems: 2

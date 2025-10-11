@@ -111,6 +111,7 @@ properties:
       - fsl,imx8qxp-dc-fetcheco
       - fsl,imx8qxp-dc-fetchlayer
       - fsl,imx8qxp-dc-fetchwarp
+      - fsl,imx95-dc-fetchlayer
 
   reg:
     maxItems: 2
