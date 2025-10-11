@@ -6,6 +6,7 @@
 #include <linux/component.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 
 #include "dc-drv.h"
@@ -24,7 +25,12 @@
 #define MAPBIT27_24	0x430
 #define MAPBIT31_28	0x434
 
-static const struct dc_subdev_info dc_tc_info[] = {
+struct dc_tc_subdev_match_data {
+	bool				need_config;
+	const struct dc_subdev_info	*info;
+};
+
+static const struct dc_subdev_info dc_tc_info_imx8qxp[] = {
 	{ .reg_start = 0x5618c800, .id = 0, },
 	{ .reg_start = 0x5618e400, .id = 1, },
 	{ /* sentinel */ },
@@ -60,8 +66,16 @@ static const u32 dc_tc_mapbit[] = {
 	0x13121110, 0x03020100, 0x07060504, 0x00000908,
 };
 
+static const struct dc_tc_subdev_match_data dc_tc_match_data_imx8qxp = {
+	.need_config = true,
+	.info = dc_tc_info_imx8qxp,
+};
+
 void dc_tc_init(struct dc_tc *tc)
 {
+	if (!tc->need_config)
+		return;
+
 	/* reset TCON_CTRL to POR default so that TCON works in bypass mode */
 	regmap_write(tc->reg, TCON_CTRL, CTRL_RST_VAL);
 
@@ -72,6 +86,8 @@ void dc_tc_init(struct dc_tc *tc)
 
 static int dc_tc_bind(struct device *dev, struct device *master, void *data)
 {
+	const struct dc_tc_subdev_match_data *dc_tc_match_data = device_get_match_data(dev);
+	const struct dc_subdev_info *dc_tc_info = dc_tc_match_data->info;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dc_drm_device *dc_drm = data;
 	struct resource *res;
@@ -83,13 +99,19 @@ static int dc_tc_bind(struct device *dev, struct device *master, void *data)
 	if (!tc)
 		return -ENOMEM;
 
-	base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
-	if (IS_ERR(base))
-		return PTR_ERR(base);
+	if (dc_tc_match_data->need_config) {
+		base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
+		if (IS_ERR(base))
+			return PTR_ERR(base);
 
-	tc->reg = devm_regmap_init_mmio(dev, base, &dc_tc_regmap_config);
-	if (IS_ERR(tc->reg))
-		return PTR_ERR(tc->reg);
+		tc->reg = devm_regmap_init_mmio(dev, base, &dc_tc_regmap_config);
+		if (IS_ERR(tc->reg))
+			return PTR_ERR(tc->reg);
+	} else {
+		res = platform_get_resource(to_platform_device(pdev->dev.parent), IORESOURCE_MEM, 0);
+		if (IS_ERR(res))
+			return PTR_ERR(res);
+	}
 
 	id = dc_subdev_get_id(dc_tc_info, res);
 	if (id < 0) {
@@ -125,7 +147,7 @@ static void dc_tc_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dc_tc_dt_ids[] = {
-	{ .compatible = "fsl,imx8qxp-dc-tcon" },
+	{ .compatible = "fsl,imx8qxp-dc-tcon", .data = &dc_tc_match_data_imx8qxp },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_tc_dt_ids);
