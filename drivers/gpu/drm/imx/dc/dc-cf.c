@@ -9,6 +9,7 @@
 #include <linux/ioport.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 
 #include "dc-drv.h"
@@ -23,12 +24,24 @@
 #define CONSTANTCOLOR		0x10
 #define  BLUE(x)		FIELD_PREP(GENMASK(15, 8), (x))
 
-static const struct dc_subdev_info dc_cf_info[] = {
+struct dc_cf_subdev_match_data {
+	enum dc_link_id			link_cf4;
+	enum dc_link_id			link_cf5;
+	const struct dc_subdev_info	*info;
+};
+
+static const struct dc_subdev_info dc_cf_info_imx8qxp[] = {
 	{ .reg_start = 0x56180960, .id = 0, },
 	{ .reg_start = 0x561809e0, .id = 1, },
 	{ .reg_start = 0x561809a0, .id = 4, },
 	{ .reg_start = 0x56180a20, .id = 5, },
 	{ /* sentinel */ },
+};
+
+static const struct dc_cf_subdev_match_data dc_cf_match_data_imx8qxp = {
+	.link_cf4 = LINK_ID_CONSTFRAME4_MX8QXP,
+	.link_cf5 = LINK_ID_CONSTFRAME5_MX8QXP,
+	.info = dc_cf_info_imx8qxp,
 };
 
 static const struct regmap_range dc_cf_regmap_ranges[] = {
@@ -84,6 +97,8 @@ void dc_cf_init(struct dc_cf *cf)
 
 static int dc_cf_bind(struct device *dev, struct device *master, void *data)
 {
+	const struct dc_cf_subdev_match_data *dc_cf_match_data = device_get_match_data(dev);
+	const struct dc_subdev_info *dc_cf_info = dc_cf_match_data->info;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dc_drm_device *dc_drm = data;
 	struct resource *res_pec;
@@ -122,11 +137,11 @@ static int dc_cf_bind(struct device *dev, struct device *master, void *data)
 		dc_drm->cf_cont[1] = cf;
 		break;
 	case 4:
-		cf->link = LINK_ID_CONSTFRAME4_MX8QXP;
+		cf->link = dc_cf_match_data->link_cf4;
 		dc_drm->cf_safe[0] = cf;
 		break;
 	case 5:
-		cf->link = LINK_ID_CONSTFRAME5_MX8QXP;
+		cf->link = dc_cf_match_data->link_cf5;
 		dc_drm->cf_safe[1] = cf;
 		break;
 	}
@@ -156,7 +171,7 @@ static void dc_cf_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dc_cf_dt_ids[] = {
-	{ .compatible = "fsl,imx8qxp-dc-constframe" },
+	{ .compatible = "fsl,imx8qxp-dc-constframe", .data = &dc_cf_match_data_imx8qxp },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_cf_dt_ids);
