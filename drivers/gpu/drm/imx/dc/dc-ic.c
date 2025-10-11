@@ -30,7 +30,8 @@
 
 struct dc_ic_data {
 	struct regmap		*regs;
-	struct clk		*clk_axi;
+	struct clk_bulk_data	*clk_axi;
+	int			clk_axi_count;
 	int			irq[IRQ_COUNT];
 	struct irq_domain	*domain;
 };
@@ -136,10 +137,11 @@ static int dc_ic_probe(struct platform_device *pdev)
 	if (IS_ERR(data->regs))
 		return PTR_ERR(data->regs);
 
-	data->clk_axi = devm_clk_get(dev, NULL);
-	if (IS_ERR(data->clk_axi))
-		return dev_err_probe(dev, PTR_ERR(data->clk_axi),
+	ret = devm_clk_bulk_get_all(dev, &data->clk_axi);
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
 				     "failed to get AXI clock\n");
+	data->clk_axi_count = ret;
 
 	for (i = 0; i < IRQ_COUNT; i++) {
 		/* skip the reserved IRQ */
@@ -242,7 +244,7 @@ static int dc_ic_runtime_suspend(struct device *dev)
 {
 	struct dc_ic_data *data = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(data->clk_axi);
+	clk_bulk_disable_unprepare(data->clk_axi_count, data->clk_axi);
 
 	return 0;
 }
@@ -252,7 +254,7 @@ static int dc_ic_runtime_resume(struct device *dev)
 	struct dc_ic_data *data = dev_get_drvdata(dev);
 	int ret;
 
-	ret = clk_prepare_enable(data->clk_axi);
+	ret = clk_bulk_prepare_enable(data->clk_axi_count, data->clk_axi);
 	if (ret)
 		dev_err(dev, "failed to enable AXI clock: %d\n", ret);
 
