@@ -118,4 +118,13 @@ config DRM_IMX93_PARALLEL_DISP_FMT_CONVERTER
 	  Say 'Y' or 'M' if you use the parallel display output path on a
 	  i.MX93 or i.MX91 SoC.
 
+config DRM_IMX95_PIXEL_INTERLEAVER
+	tristate "NXP i.MX95 pixel interleaver"
+	depends on OF && MFD_SYSCON && COMMON_CLK
+	select DRM_KMS_HELPER
+	select REGMAP_MMIO
+	help
+	  Choose this to enable pixel interleaver found in NXP i.MX95
+	  processors.
+
 endif # ARCH_MXC || COMPILE_TEST
