@@ -8,6 +8,7 @@
 #include <linux/component.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 
 #include "dc-drv.h"
@@ -34,7 +35,12 @@
 #define CONTROL			0xc
 #define  GAMMAAPPLYENABLE	BIT(0)
 
-static const struct dc_subdev_info dc_ed_info[] = {
+struct dc_ed_subdev_match_data {
+	const enum dc_link_id		*src_sels;
+	const struct dc_subdev_info	*info;
+};
+
+static const struct dc_subdev_info dc_ed_info_imx8qxp[] = {
 	{ .reg_start = 0x56180980, .id = 0, },
 	{ .reg_start = 0x56180a00, .id = 1, },
 	{ .reg_start = 0x561809c0, .id = 4, },
@@ -105,7 +111,7 @@ static const struct regmap_config dc_ed_cfg_regmap_config = {
 	.max_register = CONTROL,
 };
 
-static const enum dc_link_id src_sels[] = {
+static const enum dc_link_id src_sels_imx8qxp[] = {
 	LINK_ID_NONE,
 	LINK_ID_CONSTFRAME0,
 	LINK_ID_CONSTFRAME1,
@@ -116,6 +122,11 @@ static const enum dc_link_id src_sels[] = {
 	LINK_ID_LAYERBLEND1_MX8QXP,
 	LINK_ID_LAYERBLEND0_MX8QXP,
 	LINK_ID_LAST	/* sentinel */
+};
+
+static const struct dc_ed_subdev_match_data dc_ed_match_data_imx8qxp = {
+	.src_sels = src_sels_imx8qxp,
+	.info = dc_ed_info_imx8qxp,
 };
 
 static inline void dc_ed_pec_enable_shden(struct dc_ed *ed)
@@ -143,8 +154,8 @@ void dc_ed_pec_src_sel(struct dc_ed *ed, enum dc_link_id src)
 {
 	int i = 0;
 
-	while (src_sels[i] != LINK_ID_LAST) {
-		if (src_sels[i++] == src) {
+	while (ed->src_sels[i] != LINK_ID_LAST) {
+		if (ed->src_sels[i++] == src) {
 			regmap_write(ed->reg_pec, PIXENGCFG_DYNAMIC, src);
 			return;
 		}
@@ -191,6 +202,8 @@ void dc_ed_init(struct dc_ed *ed)
 
 static int dc_ed_bind(struct device *dev, struct device *master, void *data)
 {
+	const struct dc_ed_subdev_match_data *dc_ed_match_data = device_get_match_data(dev);
+	const struct dc_subdev_info *dc_ed_info = dc_ed_match_data->info;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dc_drm_device *dc_drm = data;
 	struct resource *res_pec;
@@ -226,6 +239,7 @@ static int dc_ed_bind(struct device *dev, struct device *master, void *data)
 		return ed->irq_shdload;
 
 	ed->dev = dev;
+	ed->src_sels = dc_ed_match_data->src_sels;
 
 	id = dc_subdev_get_id(dc_ed_info, res_pec);
 	if (id < 0) {
@@ -273,7 +287,7 @@ static void dc_ed_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dc_ed_dt_ids[] = {
-	{ .compatible = "fsl,imx8qxp-dc-extdst" },
+	{ .compatible = "fsl,imx8qxp-dc-extdst", .data = &dc_ed_match_data_imx8qxp },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_ed_dt_ids);
