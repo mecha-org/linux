@@ -27,6 +27,7 @@
 static const struct dc_subdev_info dc_tc_info[] = {
 	{ .reg_start = 0x5618c800, .id = 0, },
 	{ .reg_start = 0x5618e400, .id = 1, },
+	{ /* sentinel */ },
 };
 
 static const struct regmap_range dc_tc_regmap_ranges[] = {
@@ -90,7 +91,7 @@ static int dc_tc_bind(struct device *dev, struct device *master, void *data)
 	if (IS_ERR(tc->reg))
 		return PTR_ERR(tc->reg);
 
-	id = dc_subdev_get_id(dc_tc_info, ARRAY_SIZE(dc_tc_info), res);
+	id = dc_subdev_get_id(dc_tc_info, res);
 	if (id < 0) {
 		dev_err(dev, "failed to get instance number: %d\n", id);
 		return id;

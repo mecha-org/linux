@@ -85,16 +85,18 @@ extern struct platform_driver dc_pe_driver;
 extern struct platform_driver dc_tc_driver;
 
 static inline int dc_subdev_get_id(const struct dc_subdev_info *info,
-				   int info_cnt, struct resource *res)
+				   struct resource *res)
 {
-	int i;
+	int i = 0;
 
 	if (!res)
 		return -EINVAL;
 
-	for (i = 0; i < info_cnt; i++)
+	while (info[i].reg_start) {
 		if (info[i].reg_start == res->start)
 			return info[i].id;
+		i++;
+	}
 
 	return -EINVAL;
 }
