@@ -48,35 +48,37 @@
 #define  ROW(x)			FIELD_PREP(GENMASK(29, 16), (x))
 #define  COL(x)			FIELD_PREP(GENMASK(13, 0), (x))
 
-#define PACFG			0x54
-#define SACFG			0x58
+#define OFFSET_MX8QXP		0x00
+
+#define PACFG(o)		(0x54 + (o))
+#define SACFG(o)		(0x58 + (o))
 #define  STARTY(x)		FIELD_PREP(GENMASK(29, 16), ((x) + 1))
 #define  STARTX(x)		FIELD_PREP(GENMASK(13, 0), ((x) + 1))
 
-#define FGINCTRL		0x5c
-#define FGINCTRLPANIC		0x60
+#define FGINCTRL(o)		(0x5c + (o))
+#define FGINCTRLPANIC(o)	(0x60 + (o))
 #define  ENSECALPHA		BIT(4)
 #define  ENPRIMALPHA		BIT(3)
 #define  FGDM_MASK		GENMASK(2, 0)
 
-#define FGCCR			0x64
+#define FGCCR(o)		(0x64 + (o))
 #define  CCGREEN(x)		FIELD_PREP(GENMASK(19, 10), (x))
 
-#define FGENABLE		0x68
+#define FGENABLE(o)		(0x68 + (o))
 #define  FGEN			BIT(0)
 
-#define FGSLR			0x6c
+#define FGSLR(o)		(0x6c + (o))
 #define  SHDTOKGEN		BIT(0)
 
-#define FGTIMESTAMP		0x74
+#define FGTIMESTAMP(o)		(0x74 + (o))
 #define  FRAMEINDEX(x)		FIELD_GET(GENMASK(31, 14), (x))
 #define  LINEINDEX(x)		FIELD_GET(GENMASK(13, 0), (x))
 
-#define FGCHSTAT		0x78
+#define FGCHSTAT(o)		(0x78 + (o))
 #define  SECSYNCSTAT		BIT(24)
 #define  SFIFOEMPTY		BIT(16)
 
-#define FGCHSTATCLR		0x7c
+#define FGCHSTATCLR(o)		(0x7c + (o))
 #define  CLRSECSTAT		BIT(16)
 
 enum dc_fg_syncmode {
@@ -97,15 +99,15 @@ static const struct dc_subdev_info dc_fg_info[] = {
 static const struct regmap_range dc_fg_regmap_write_ranges[] = {
 	regmap_reg_range(FGSTCTRL, VTCFG2),
 	regmap_reg_range(PKICKCONFIG, SKICKCONFIG),
-	regmap_reg_range(PACFG, FGSLR),
-	regmap_reg_range(FGCHSTATCLR, FGCHSTATCLR),
+	regmap_reg_range(PACFG(OFFSET_MX8QXP), FGSLR(OFFSET_MX8QXP)),
+	regmap_reg_range(FGCHSTATCLR(OFFSET_MX8QXP), FGCHSTATCLR(OFFSET_MX8QXP)),
 };
 
 static const struct regmap_range dc_fg_regmap_read_ranges[] = {
 	regmap_reg_range(FGSTCTRL, VTCFG2),
 	regmap_reg_range(PKICKCONFIG, SKICKCONFIG),
-	regmap_reg_range(PACFG, FGENABLE),
-	regmap_reg_range(FGTIMESTAMP, FGCHSTAT),
+	regmap_reg_range(PACFG(OFFSET_MX8QXP), FGENABLE(OFFSET_MX8QXP)),
+	regmap_reg_range(FGTIMESTAMP(OFFSET_MX8QXP), FGCHSTAT(OFFSET_MX8QXP)),
 };
 
 static const struct regmap_access_table dc_fg_regmap_write_table = {
@@ -125,7 +127,7 @@ static const struct regmap_config dc_fg_regmap_config = {
 	.fast_io = true,
 	.wr_table = &dc_fg_regmap_write_table,
 	.rd_table = &dc_fg_regmap_read_table,
-	.max_register = FGCHSTATCLR,
+	.max_register = FGCHSTATCLR(OFFSET_MX8QXP),
 };
 
 static inline void dc_fg_enable_shden(struct dc_fg *fg)
@@ -171,15 +173,15 @@ void dc_fg_cfg_videomode(struct dc_fg *fg, struct drm_display_mode *m)
 	regmap_write(fg->reg, SKICKCONFIG, COL(kick_col) | ROW(kick_row) | EN);
 
 	/* primary and secondary area position configuration */
-	regmap_write(fg->reg, PACFG, STARTX(0) | STARTY(0));
-	regmap_write(fg->reg, SACFG, STARTX(0) | STARTY(0));
+	regmap_write(fg->reg, PACFG(OFFSET_MX8QXP), STARTX(0) | STARTY(0));
+	regmap_write(fg->reg, SACFG(OFFSET_MX8QXP), STARTX(0) | STARTY(0));
 
 	/* alpha */
-	regmap_write_bits(fg->reg, FGINCTRL,      ENPRIMALPHA | ENSECALPHA, 0);
-	regmap_write_bits(fg->reg, FGINCTRLPANIC, ENPRIMALPHA | ENSECALPHA, 0);
+	regmap_write_bits(fg->reg, FGINCTRL(OFFSET_MX8QXP), ENPRIMALPHA | ENSECALPHA, 0);
+	regmap_write_bits(fg->reg, FGINCTRLPANIC(OFFSET_MX8QXP), ENPRIMALPHA | ENSECALPHA, 0);
 
 	/* constant color is green(used in panic mode)  */
-	regmap_write(fg->reg, FGCCR, CCGREEN(0x3ff));
+	regmap_write(fg->reg, FGCCR(OFFSET_MX8QXP), CCGREEN(0x3ff));
 
 	ret = clk_set_rate(fg->clk_disp, m->clock * HZ_PER_KHZ);
 	if (ret < 0)
@@ -188,34 +190,34 @@ void dc_fg_cfg_videomode(struct dc_fg *fg, struct drm_display_mode *m)
 
 static inline void dc_fg_displaymode(struct dc_fg *fg, enum dc_fg_dm mode)
 {
-	regmap_write_bits(fg->reg, FGINCTRL, FGDM_MASK, mode);
+	regmap_write_bits(fg->reg, FGINCTRL(OFFSET_MX8QXP), FGDM_MASK, mode);
 }
 
 static inline void dc_fg_panic_displaymode(struct dc_fg *fg, enum dc_fg_dm mode)
 {
-	regmap_write_bits(fg->reg, FGINCTRLPANIC, FGDM_MASK, mode);
+	regmap_write_bits(fg->reg, FGINCTRLPANIC(OFFSET_MX8QXP), FGDM_MASK, mode);
 }
 
 void dc_fg_enable(struct dc_fg *fg)
 {
-	regmap_write(fg->reg, FGENABLE, FGEN);
+	regmap_write(fg->reg, FGENABLE(OFFSET_MX8QXP), FGEN);
 }
 
 void dc_fg_disable(struct dc_fg *fg)
 {
-	regmap_write(fg->reg, FGENABLE, 0);
+	regmap_write(fg->reg, FGENABLE(OFFSET_MX8QXP), 0);
 }
 
 void dc_fg_shdtokgen(struct dc_fg *fg)
 {
-	regmap_write(fg->reg, FGSLR, SHDTOKGEN);
+	regmap_write(fg->reg, FGSLR(OFFSET_MX8QXP), SHDTOKGEN);
 }
 
 u32 dc_fg_get_frame_index(struct dc_fg *fg)
 {
 	u32 val;
 
-	regmap_read(fg->reg, FGTIMESTAMP, &val);
+	regmap_read(fg->reg, FGTIMESTAMP(OFFSET_MX8QXP), &val);
 
 	return FRAMEINDEX(val);
 }
@@ -224,7 +226,7 @@ u32 dc_fg_get_line_index(struct dc_fg *fg)
 {
 	u32 val;
 
-	regmap_read(fg->reg, FGTIMESTAMP, &val);
+	regmap_read(fg->reg, FGTIMESTAMP(OFFSET_MX8QXP), &val);
 
 	return LINEINDEX(val);
 }
@@ -248,21 +250,21 @@ bool dc_fg_secondary_requests_to_read_empty_fifo(struct dc_fg *fg)
 {
 	u32 val;
 
-	regmap_read(fg->reg, FGCHSTAT, &val);
+	regmap_read(fg->reg, FGCHSTAT(OFFSET_MX8QXP), &val);
 
 	return !!(val & SFIFOEMPTY);
 }
 
 void dc_fg_secondary_clear_channel_status(struct dc_fg *fg)
 {
-	regmap_write(fg->reg, FGCHSTATCLR, CLRSECSTAT);
+	regmap_write(fg->reg, FGCHSTATCLR(OFFSET_MX8QXP), CLRSECSTAT);
 }
 
 int dc_fg_wait_for_secondary_syncup(struct dc_fg *fg)
 {
 	unsigned int val;
 
-	return regmap_read_poll_timeout(fg->reg, FGCHSTAT, val,
+	return regmap_read_poll_timeout(fg->reg, FGCHSTAT(OFFSET_MX8QXP), val,
 					val & SECSYNCSTAT, 5, 100000);
 }
 
