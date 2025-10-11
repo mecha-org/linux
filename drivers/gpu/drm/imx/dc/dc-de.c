@@ -113,6 +113,7 @@ void dc_de_post_bind(struct dc_drm_device *dc_drm)
 
 	for (i = 0; i < DC_DISPLAYS; i++) {
 		de = dc_drm->de[i];
+		de->db = dc_drm->db[i];
 		de->fg = dc_drm->fg[i];
 		de->tc = dc_drm->tc[i];
 	}
@@ -148,6 +149,7 @@ static int dc_de_runtime_resume(struct device *dev)
 	struct dc_de *de = dev_get_drvdata(dev);
 
 	dc_dec_init(de);
+	dc_db_init(de->db);
 	dc_fg_init(de->fg);
 	dc_tc_init(de->tc);
 

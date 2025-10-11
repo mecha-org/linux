@@ -16,6 +16,12 @@
 #define DC_FRAMEGEN_MAX_FRAME_INDEX	0x3ffff
 #define DC_FRAMEGEN_MAX_CLOCK_KHZ	300000
 
+struct dc_db {
+	struct device *dev;
+	struct regmap *reg_cfg;
+	int id;
+};
+
 struct dc_fg {
 	struct device *dev;
 	struct regmap *reg;
@@ -30,12 +36,17 @@ struct dc_tc {
 struct dc_de {
 	struct device *dev;
 	struct regmap *reg_top;
+	struct dc_db *db;
 	struct dc_fg *fg;
 	struct dc_tc *tc;
 	int irq_shdload;
 	int irq_framecomplete;
 	int irq_seqcomplete;
 };
+
+/* Domain Blend Unit */
+void dc_db_init(struct dc_db *db);
+void dc_db_shdtokgen(struct dc_db *db);
 
 /* Frame Generator Unit */
 void dc_fg_cfg_videomode(struct dc_fg *fg, struct drm_display_mode *m);
