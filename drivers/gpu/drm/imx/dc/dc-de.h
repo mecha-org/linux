@@ -42,6 +42,7 @@ struct dc_de {
 	int irq_shdload;
 	int irq_framecomplete;
 	int irq_seqcomplete;
+	unsigned int reg_polarityctrl;
 };
 
 /* Domain Blend Unit */

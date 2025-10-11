@@ -9,47 +9,62 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 
 #include "dc-de.h"
 #include "dc-drv.h"
 
-#define POLARITYCTRL		0xc
+#define POLARITYCTRL_IMX8QXP	0xc
 #define  POLEN_HIGH		BIT(2)
 
-static const struct dc_subdev_info dc_de_info[] = {
+struct dc_de_subdev_match_data {
+	const struct regmap_config	*regmap_config;
+	unsigned int			reg_polarityctrl;
+	const struct dc_subdev_info	*info;
+};
+
+static const struct dc_subdev_info dc_de_info_imx8qxp[] = {
 	{ .reg_start = 0x5618b400, .id = 0, },
 	{ .reg_start = 0x5618b420, .id = 1, },
 	{ /* sentinel */ },
 };
 
-static const struct regmap_range dc_de_regmap_ranges[] = {
-	regmap_reg_range(POLARITYCTRL, POLARITYCTRL),
+static const struct regmap_range dc_de_regmap_ranges_imx8qxp[] = {
+	regmap_reg_range(POLARITYCTRL_IMX8QXP, POLARITYCTRL_IMX8QXP),
 };
 
-static const struct regmap_access_table dc_de_regmap_access_table = {
-	.yes_ranges = dc_de_regmap_ranges,
-	.n_yes_ranges = ARRAY_SIZE(dc_de_regmap_ranges),
+static const struct regmap_access_table dc_de_regmap_access_table_imx8qxp = {
+	.yes_ranges = dc_de_regmap_ranges_imx8qxp,
+	.n_yes_ranges = ARRAY_SIZE(dc_de_regmap_ranges_imx8qxp),
 };
 
-static const struct regmap_config dc_de_top_regmap_config = {
+static const struct regmap_config dc_de_top_regmap_config_imx8qxp = {
 	.name = "top",
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
 	.fast_io = true,
-	.wr_table = &dc_de_regmap_access_table,
-	.rd_table = &dc_de_regmap_access_table,
-	.max_register = POLARITYCTRL,
+	.wr_table = &dc_de_regmap_access_table_imx8qxp,
+	.rd_table = &dc_de_regmap_access_table_imx8qxp,
+	.max_register = POLARITYCTRL_IMX8QXP,
+};
+
+static const struct dc_de_subdev_match_data dc_de_match_data_imx8qxp = {
+	.regmap_config = &dc_de_top_regmap_config_imx8qxp,
+	.reg_polarityctrl = POLARITYCTRL_IMX8QXP,
+	.info = dc_de_info_imx8qxp,
 };
 
 static inline void dc_dec_init(struct dc_de *de)
 {
-	regmap_write_bits(de->reg_top, POLARITYCTRL, POLARITYCTRL, POLEN_HIGH);
+	regmap_write_bits(de->reg_top, de->reg_polarityctrl, de->reg_polarityctrl, POLEN_HIGH);
 }
 
 static int dc_de_bind(struct device *dev, struct device *master, void *data)
 {
+	const struct dc_de_subdev_match_data *dc_de_match_data = device_get_match_data(dev);
+	const struct dc_subdev_info *dc_de_info = dc_de_match_data->info;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dc_drm_device *dc_drm = data;
 	struct resource *res_top;
@@ -66,7 +81,7 @@ static int dc_de_bind(struct device *dev, struct device *master, void *data)
 		return PTR_ERR(base_top);
 
 	de->reg_top = devm_regmap_init_mmio(dev, base_top,
-					    &dc_de_top_regmap_config);
+					    dc_de_match_data->regmap_config);
 	if (IS_ERR(de->reg_top))
 		return PTR_ERR(de->reg_top);
 
@@ -83,6 +98,7 @@ static int dc_de_bind(struct device *dev, struct device *master, void *data)
 		return de->irq_seqcomplete;
 
 	de->dev = dev;
+	de->reg_polarityctrl = dc_de_match_data->reg_polarityctrl;
 
 	dev_set_drvdata(dev, de);
 
@@ -162,7 +178,7 @@ static const struct dev_pm_ops dc_de_pm_ops = {
 };
 
 static const struct of_device_id dc_de_dt_ids[] = {
-	{ .compatible = "fsl,imx8qxp-dc-display-engine" },
+	{ .compatible = "fsl,imx8qxp-dc-display-engine", .data = &dc_de_match_data_imx8qxp },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_de_dt_ids);
