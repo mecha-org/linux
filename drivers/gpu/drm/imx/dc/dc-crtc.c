@@ -156,6 +156,10 @@ dc_crtc_atomic_check(struct drm_crtc *crtc, struct drm_atomic_commit *state)
 	struct dc_crtc *dc_crtc = to_dc_crtc(crtc);
 	enum drm_mode_status status;
 
+	/* If we are not active we don't care */
+	if (!new_crtc_state->active)
+		return 0;
+
 	status = dc_crtc_check_clock(dc_crtc, adj->clock);
 	if (status != MODE_OK)
 		return -EINVAL;
