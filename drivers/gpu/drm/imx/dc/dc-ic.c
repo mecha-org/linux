@@ -217,7 +217,8 @@ static int dc_ic_probe(struct platform_device *pdev)
 	}
 	irq_domain_set_pm_device(data->domain, dev);
 
-	ret = irq_alloc_domain_generic_chips(data->domain, 32, 1, "DC",
+	ret = irq_alloc_domain_generic_chips(data->domain, 32, 1,
+					     of_node_full_name(dev->of_node),
 					     handle_level_irq, 0, 0, 0);
 	if (ret) {
 		dev_err(dev, "failed to alloc generic IRQ chips: %d\n", ret);
