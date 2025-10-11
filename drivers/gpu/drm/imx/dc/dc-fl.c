@@ -7,6 +7,7 @@
 #include <linux/ioport.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 
 #include <drm/drm_fourcc.h>
@@ -26,6 +27,7 @@
 #define CONSTANTCOLOR			0x30
 #define LAYERPROPERTY			0x34
 #define FRAMEDIMENSIONS_IMX8QXP		0x150
+#define FRAMEDIMENSIONS_IMX95		0x1d8
 
 struct dc_fl {
 	struct dc_fu fu;
@@ -43,6 +45,12 @@ struct dc_fl_subdev_match_data {
 
 static const struct dc_subdev_info dc_fl_info_imx8qxp[] = {
 	{ .reg_start = 0x56180ac0, .id = 0, },
+	{ /* sentinel */ },
+};
+
+static const struct dc_subdev_info dc_fl_info_imx95[] = {
+	{ .reg_start = 0x4b5d1000, .id = 0, },
+	{ .reg_start = 0x4b5e1000, .id = 1, },
 	{ /* sentinel */ },
 };
 
@@ -74,6 +82,36 @@ static const struct dc_fl_subdev_match_data dc_fl_match_data_imx8qxp = {
 	.reg_framedimensions = FRAMEDIMENSIONS_IMX8QXP,
 	.reg_frac_offset = 0x28,
 	.info = dc_fl_info_imx8qxp,
+};
+
+static const struct regmap_range dc_fl_regmap_ranges_imx95[] = {
+	regmap_reg_range(STATICCONTROL, FRAMEDIMENSIONS_IMX95),
+};
+
+static const struct regmap_access_table dc_fl_regmap_access_table_imx95 = {
+	.yes_ranges = dc_fl_regmap_ranges_imx95,
+	.n_yes_ranges = ARRAY_SIZE(dc_fl_regmap_ranges_imx95),
+};
+
+static const struct regmap_config dc_fl_cfg_regmap_config_imx95 = {
+	.name = "cfg",
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.fast_io = true,
+	.wr_table = &dc_fl_regmap_access_table_imx95,
+	.rd_table = &dc_fl_regmap_access_table_imx95,
+	.max_register = FRAMEDIMENSIONS_IMX95,
+};
+
+static const struct dc_fl_subdev_match_data dc_fl_match_data_imx95 = {
+	.regmap_config = &dc_fl_cfg_regmap_config_imx95,
+	.reg_offset_bbm = 0x4,
+	.reg_offset_base = 0x8,
+	.reg_offset_rest = 0x14,
+	.reg_framedimensions = FRAMEDIMENSIONS_IMX95,
+	.reg_frac_offset = 0x38,
+	.info = dc_fl_info_imx95,
 };
 
 static void dc_fl_set_fmt(struct dc_fu *fu, enum dc_fu_frac frac,
@@ -151,7 +189,7 @@ static int dc_fl_bind(struct device *dev, struct device *master, void *data)
 	}
 
 	fu->link_id = LINK_ID_FETCHLAYER0;
-	fu->id = DC_FETCHUNIT_FL0;
+	fu->id = DC_FETCHUNIT_FL0 + id;
 	for (i = 0; i < DC_FETCHUNIT_FRAC_NUM; i++) {
 		off = i * dc_fl_match_data->reg_frac_offset;
 		off_base = off + dc_fl_match_data->reg_offset_base;
@@ -201,6 +239,7 @@ static void dc_fl_remove(struct platform_device *pdev)
 
 static const struct of_device_id dc_fl_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-dc-fetchlayer", .data = &dc_fl_match_data_imx8qxp },
+	{ .compatible = "fsl,imx95-dc-fetchlayer", .data = &dc_fl_match_data_imx95 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_fl_dt_ids);

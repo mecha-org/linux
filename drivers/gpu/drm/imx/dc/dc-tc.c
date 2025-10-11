@@ -36,6 +36,12 @@ static const struct dc_subdev_info dc_tc_info_imx8qxp[] = {
 	{ /* sentinel */ },
 };
 
+static const struct dc_subdev_info dc_tc_info_imx95[] = {
+	{ .reg_start = 0x4b711000, .id = 0, },
+	{ .reg_start = 0x4b771000, .id = 1, },
+	{ /* sentinel */ },
+};
+
 static const struct regmap_range dc_tc_regmap_ranges[] = {
 	regmap_reg_range(TCON_CTRL, TCON_CTRL),
 	regmap_reg_range(MAPBIT3_0, MAPBIT31_28),
@@ -69,6 +75,11 @@ static const u32 dc_tc_mapbit[] = {
 static const struct dc_tc_subdev_match_data dc_tc_match_data_imx8qxp = {
 	.need_config = true,
 	.info = dc_tc_info_imx8qxp,
+};
+
+static const struct dc_tc_subdev_match_data dc_tc_match_data_imx95 = {
+	.need_config = false,
+	.info = dc_tc_info_imx95,
 };
 
 void dc_tc_init(struct dc_tc *tc)
@@ -148,6 +159,7 @@ static void dc_tc_remove(struct platform_device *pdev)
 
 static const struct of_device_id dc_tc_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-dc-tcon", .data = &dc_tc_match_data_imx8qxp },
+	{ .compatible = "fsl,imx95-dc-tcon", .data = &dc_tc_match_data_imx95 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_tc_dt_ids);
