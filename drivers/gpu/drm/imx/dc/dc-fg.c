@@ -11,6 +11,7 @@
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/units.h>
 
@@ -81,6 +82,12 @@
 #define FGCHSTATCLR(o)		(0x7c + (o))
 #define  CLRSECSTAT		BIT(16)
 
+struct dc_fg_subdev_match_data {
+	const struct regmap_config	*regmap_config;
+	unsigned int			reg_offset;
+	const struct dc_subdev_info	*info;
+};
+
 enum dc_fg_syncmode {
 	FG_SYNCMODE_OFF,	/* No side-by-side synchronization. */
 };
@@ -90,44 +97,50 @@ enum dc_fg_dm {
 	FG_DM_SEC_ON_TOP = 0x5,	/* Both inputs overlaid with secondary on top. */
 };
 
-static const struct dc_subdev_info dc_fg_info[] = {
+static const struct dc_subdev_info dc_fg_info_imx8qxp[] = {
 	{ .reg_start = 0x5618b800, .id = 0, },
 	{ .reg_start = 0x5618d400, .id = 1, },
 	{ /* sentinel */ },
 };
 
-static const struct regmap_range dc_fg_regmap_write_ranges[] = {
+static const struct regmap_range dc_fg_regmap_write_ranges_imx8qxp[] = {
 	regmap_reg_range(FGSTCTRL, VTCFG2),
 	regmap_reg_range(PKICKCONFIG, SKICKCONFIG),
 	regmap_reg_range(PACFG(OFFSET_MX8QXP), FGSLR(OFFSET_MX8QXP)),
 	regmap_reg_range(FGCHSTATCLR(OFFSET_MX8QXP), FGCHSTATCLR(OFFSET_MX8QXP)),
 };
 
-static const struct regmap_range dc_fg_regmap_read_ranges[] = {
+static const struct regmap_range dc_fg_regmap_read_ranges_imx8qxp[] = {
 	regmap_reg_range(FGSTCTRL, VTCFG2),
 	regmap_reg_range(PKICKCONFIG, SKICKCONFIG),
 	regmap_reg_range(PACFG(OFFSET_MX8QXP), FGENABLE(OFFSET_MX8QXP)),
 	regmap_reg_range(FGTIMESTAMP(OFFSET_MX8QXP), FGCHSTAT(OFFSET_MX8QXP)),
 };
 
-static const struct regmap_access_table dc_fg_regmap_write_table = {
-	.yes_ranges = dc_fg_regmap_write_ranges,
-	.n_yes_ranges = ARRAY_SIZE(dc_fg_regmap_write_ranges),
+static const struct regmap_access_table dc_fg_regmap_write_table_imx8qxp = {
+	.yes_ranges = dc_fg_regmap_write_ranges_imx8qxp,
+	.n_yes_ranges = ARRAY_SIZE(dc_fg_regmap_write_ranges_imx8qxp),
 };
 
-static const struct regmap_access_table dc_fg_regmap_read_table = {
-	.yes_ranges = dc_fg_regmap_read_ranges,
-	.n_yes_ranges = ARRAY_SIZE(dc_fg_regmap_read_ranges),
+static const struct regmap_access_table dc_fg_regmap_read_table_imx8qxp = {
+	.yes_ranges = dc_fg_regmap_read_ranges_imx8qxp,
+	.n_yes_ranges = ARRAY_SIZE(dc_fg_regmap_read_ranges_imx8qxp),
 };
 
-static const struct regmap_config dc_fg_regmap_config = {
+static const struct regmap_config dc_fg_regmap_config_imx8qxp = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
 	.fast_io = true,
-	.wr_table = &dc_fg_regmap_write_table,
-	.rd_table = &dc_fg_regmap_read_table,
+	.wr_table = &dc_fg_regmap_write_table_imx8qxp,
+	.rd_table = &dc_fg_regmap_read_table_imx8qxp,
 	.max_register = FGCHSTATCLR(OFFSET_MX8QXP),
+};
+
+static const struct dc_fg_subdev_match_data dc_fg_match_data_imx8qxp = {
+	.regmap_config = &dc_fg_regmap_config_imx8qxp,
+	.reg_offset = OFFSET_MX8QXP,
+	.info = dc_fg_info_imx8qxp,
 };
 
 static inline void dc_fg_enable_shden(struct dc_fg *fg)
@@ -173,15 +186,15 @@ void dc_fg_cfg_videomode(struct dc_fg *fg, struct drm_display_mode *m)
 	regmap_write(fg->reg, SKICKCONFIG, COL(kick_col) | ROW(kick_row) | EN);
 
 	/* primary and secondary area position configuration */
-	regmap_write(fg->reg, PACFG(OFFSET_MX8QXP), STARTX(0) | STARTY(0));
-	regmap_write(fg->reg, SACFG(OFFSET_MX8QXP), STARTX(0) | STARTY(0));
+	regmap_write(fg->reg, PACFG(fg->reg_offset), STARTX(0) | STARTY(0));
+	regmap_write(fg->reg, SACFG(fg->reg_offset), STARTX(0) | STARTY(0));
 
 	/* alpha */
-	regmap_write_bits(fg->reg, FGINCTRL(OFFSET_MX8QXP), ENPRIMALPHA | ENSECALPHA, 0);
-	regmap_write_bits(fg->reg, FGINCTRLPANIC(OFFSET_MX8QXP), ENPRIMALPHA | ENSECALPHA, 0);
+	regmap_write_bits(fg->reg, FGINCTRL(fg->reg_offset), ENPRIMALPHA | ENSECALPHA, 0);
+	regmap_write_bits(fg->reg, FGINCTRLPANIC(fg->reg_offset), ENPRIMALPHA | ENSECALPHA, 0);
 
 	/* constant color is green(used in panic mode)  */
-	regmap_write(fg->reg, FGCCR(OFFSET_MX8QXP), CCGREEN(0x3ff));
+	regmap_write(fg->reg, FGCCR(fg->reg_offset), CCGREEN(0x3ff));
 
 	ret = clk_set_rate(fg->clk_disp, m->clock * HZ_PER_KHZ);
 	if (ret < 0)
@@ -190,34 +203,34 @@ void dc_fg_cfg_videomode(struct dc_fg *fg, struct drm_display_mode *m)
 
 static inline void dc_fg_displaymode(struct dc_fg *fg, enum dc_fg_dm mode)
 {
-	regmap_write_bits(fg->reg, FGINCTRL(OFFSET_MX8QXP), FGDM_MASK, mode);
+	regmap_write_bits(fg->reg, FGINCTRL(fg->reg_offset), FGDM_MASK, mode);
 }
 
 static inline void dc_fg_panic_displaymode(struct dc_fg *fg, enum dc_fg_dm mode)
 {
-	regmap_write_bits(fg->reg, FGINCTRLPANIC(OFFSET_MX8QXP), FGDM_MASK, mode);
+	regmap_write_bits(fg->reg, FGINCTRLPANIC(fg->reg_offset), FGDM_MASK, mode);
 }
 
 void dc_fg_enable(struct dc_fg *fg)
 {
-	regmap_write(fg->reg, FGENABLE(OFFSET_MX8QXP), FGEN);
+	regmap_write(fg->reg, FGENABLE(fg->reg_offset), FGEN);
 }
 
 void dc_fg_disable(struct dc_fg *fg)
 {
-	regmap_write(fg->reg, FGENABLE(OFFSET_MX8QXP), 0);
+	regmap_write(fg->reg, FGENABLE(fg->reg_offset), 0);
 }
 
 void dc_fg_shdtokgen(struct dc_fg *fg)
 {
-	regmap_write(fg->reg, FGSLR(OFFSET_MX8QXP), SHDTOKGEN);
+	regmap_write(fg->reg, FGSLR(fg->reg_offset), SHDTOKGEN);
 }
 
 u32 dc_fg_get_frame_index(struct dc_fg *fg)
 {
 	u32 val;
 
-	regmap_read(fg->reg, FGTIMESTAMP(OFFSET_MX8QXP), &val);
+	regmap_read(fg->reg, FGTIMESTAMP(fg->reg_offset), &val);
 
 	return FRAMEINDEX(val);
 }
@@ -226,7 +239,7 @@ u32 dc_fg_get_line_index(struct dc_fg *fg)
 {
 	u32 val;
 
-	regmap_read(fg->reg, FGTIMESTAMP(OFFSET_MX8QXP), &val);
+	regmap_read(fg->reg, FGTIMESTAMP(fg->reg_offset), &val);
 
 	return LINEINDEX(val);
 }
@@ -250,21 +263,21 @@ bool dc_fg_secondary_requests_to_read_empty_fifo(struct dc_fg *fg)
 {
 	u32 val;
 
-	regmap_read(fg->reg, FGCHSTAT(OFFSET_MX8QXP), &val);
+	regmap_read(fg->reg, FGCHSTAT(fg->reg_offset), &val);
 
 	return !!(val & SFIFOEMPTY);
 }
 
 void dc_fg_secondary_clear_channel_status(struct dc_fg *fg)
 {
-	regmap_write(fg->reg, FGCHSTATCLR(OFFSET_MX8QXP), CLRSECSTAT);
+	regmap_write(fg->reg, FGCHSTATCLR(fg->reg_offset), CLRSECSTAT);
 }
 
 int dc_fg_wait_for_secondary_syncup(struct dc_fg *fg)
 {
 	unsigned int val;
 
-	return regmap_read_poll_timeout(fg->reg, FGCHSTAT(OFFSET_MX8QXP), val,
+	return regmap_read_poll_timeout(fg->reg, FGCHSTAT(fg->reg_offset), val,
 					val & SECSYNCSTAT, 5, 100000);
 }
 
@@ -304,6 +317,8 @@ void dc_fg_init(struct dc_fg *fg)
 
 static int dc_fg_bind(struct device *dev, struct device *master, void *data)
 {
+	const struct dc_fg_subdev_match_data *dc_fg_match_data = device_get_match_data(dev);
+	const struct dc_subdev_info *dc_fg_info = dc_fg_match_data->info;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dc_drm_device *dc_drm = data;
 	struct resource *res;
@@ -319,7 +334,7 @@ static int dc_fg_bind(struct device *dev, struct device *master, void *data)
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	fg->reg = devm_regmap_init_mmio(dev, base, &dc_fg_regmap_config);
+	fg->reg = devm_regmap_init_mmio(dev, base, dc_fg_match_data->regmap_config);
 	if (IS_ERR(fg->reg))
 		return PTR_ERR(fg->reg);
 
@@ -335,6 +350,7 @@ static int dc_fg_bind(struct device *dev, struct device *master, void *data)
 	}
 
 	fg->dev = dev;
+	fg->reg_offset = dc_fg_match_data->reg_offset;
 	dc_drm->fg[id] = fg;
 
 	return 0;
@@ -362,7 +378,7 @@ static void dc_fg_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dc_fg_dt_ids[] = {
-	{ .compatible = "fsl,imx8qxp-dc-framegen" },
+	{ .compatible = "fsl,imx8qxp-dc-framegen", .data = &dc_fg_match_data_imx8qxp },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_fg_dt_ids);
