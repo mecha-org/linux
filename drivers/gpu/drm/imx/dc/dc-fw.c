@@ -15,16 +15,19 @@
 
 #define PIXENGCFG_DYNAMIC		0x8
 
-#define BASEADDRESS(x)			(0x10 + FRAC_OFFSET * (x))
-#define SOURCEBUFFERATTRIBUTES(x)	(0x14 + FRAC_OFFSET * (x))
-#define SOURCEBUFFERDIMENSION(x)	(0x18 + FRAC_OFFSET * (x))
-#define COLORCOMPONENTBITS(x)		(0x1c + FRAC_OFFSET * (x))
-#define COLORCOMPONENTSHIFT(x)		(0x20 + FRAC_OFFSET * (x))
-#define LAYEROFFSET(x)			(0x24 + FRAC_OFFSET * (x))
-#define CLIPWINDOWOFFSET(x)		(0x28 + FRAC_OFFSET * (x))
-#define CLIPWINDOWDIMENSIONS(x)		(0x2c + FRAC_OFFSET * (x))
-#define CONSTANTCOLOR(x)		(0x30 + FRAC_OFFSET * (x))
-#define LAYERPROPERTY(x)		(0x34 + FRAC_OFFSET * (x))
+#define FRAC_OFFSET			0x28
+
+#define BURSTBUFFERMANAGEMENT		0xc
+#define BASEADDRESS			0x10
+#define SOURCEBUFFERATTRIBUTES		0x14
+#define SOURCEBUFFERDIMENSION		0x18
+#define COLORCOMPONENTBITS		0x1c
+#define COLORCOMPONENTSHIFT		0x20
+#define LAYEROFFSET			0x24
+#define CLIPWINDOWOFFSET		0x28
+#define CLIPWINDOWDIMENSIONS		0x2c
+#define CONSTANTCOLOR			0x30
+#define LAYERPROPERTY			0x34
 #define FRAMEDIMENSIONS			0x150
 #define CONTROL				0x170
 
@@ -129,6 +132,7 @@ static int dc_fw_bind(struct device *dev, struct device *master, void *data)
 	struct resource *res_pec;
 	void __iomem *base_pec;
 	void __iomem *base_cfg;
+	unsigned int off;
 	struct dc_fw *fw;
 	struct dc_fu *fu;
 	int i, id;
@@ -166,16 +170,17 @@ static int dc_fw_bind(struct device *dev, struct device *master, void *data)
 	fu->link_id = LINK_ID_FETCHWARP2;
 	fu->id = DC_FETCHUNIT_FW2;
 	for (i = 0; i < DC_FETCHUNIT_FRAC_NUM; i++) {
-		fu->reg_baseaddr[i]		  = BASEADDRESS(i);
-		fu->reg_sourcebufferattributes[i] = SOURCEBUFFERATTRIBUTES(i);
-		fu->reg_sourcebufferdimension[i]  = SOURCEBUFFERDIMENSION(i);
-		fu->reg_colorcomponentbits[i]     = COLORCOMPONENTBITS(i);
-		fu->reg_colorcomponentshift[i]    = COLORCOMPONENTSHIFT(i);
-		fu->reg_layeroffset[i]		  = LAYEROFFSET(i);
-		fu->reg_clipwindowoffset[i]	  = CLIPWINDOWOFFSET(i);
-		fu->reg_clipwindowdimensions[i]	  = CLIPWINDOWDIMENSIONS(i);
-		fu->reg_constantcolor[i]	  = CONSTANTCOLOR(i);
-		fu->reg_layerproperty[i]	  = LAYERPROPERTY(i);
+		off = i * FRAC_OFFSET;
+		fu->reg_baseaddr[i]		  = BASEADDRESS + off;
+		fu->reg_sourcebufferattributes[i] = SOURCEBUFFERATTRIBUTES + off;
+		fu->reg_sourcebufferdimension[i]  = SOURCEBUFFERDIMENSION + off;
+		fu->reg_colorcomponentbits[i]     = COLORCOMPONENTBITS + off;
+		fu->reg_colorcomponentshift[i]    = COLORCOMPONENTSHIFT + off;
+		fu->reg_layeroffset[i]		  = LAYEROFFSET + off;
+		fu->reg_clipwindowoffset[i]	  = CLIPWINDOWOFFSET + off;
+		fu->reg_clipwindowdimensions[i]	  = CLIPWINDOWDIMENSIONS + off;
+		fu->reg_constantcolor[i]	  = CONSTANTCOLOR + off;
+		fu->reg_layerproperty[i]	  = LAYERPROPERTY + off;
 	}
 	fu->reg_burstbuffermanagement = BURSTBUFFERMANAGEMENT;
 	fu->reg_framedimensions = FRAMEDIMENSIONS;
