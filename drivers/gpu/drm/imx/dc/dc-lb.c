@@ -55,6 +55,14 @@
 #define  XPOS_MASK				GENMASK(15, 0)
 #define  XPOS(x)				FIELD_PREP(XPOS_MASK, (x))
 
+struct dc_lb_subdev_match_data {
+	const enum dc_link_id		*pri_sels;
+	const enum dc_link_id		*sec_sels;
+	const enum dc_link_id		first_lb;
+	unsigned int			last_cf;
+	const struct dc_subdev_info	*info;
+};
+
 enum dc_lb_blend_func {
 	DC_LAYERBLEND_BLEND_ZERO,
 	DC_LAYERBLEND_BLEND_ONE,
@@ -118,7 +126,7 @@ static const struct regmap_config dc_lb_cfg_regmap_config = {
 	.max_register = POSITION,
 };
 
-static const enum dc_link_id prim_sels[] = {
+static const enum dc_link_id prim_sels_imx8qxp[] = {
 	/* common options */
 	LINK_ID_NONE,
 	LINK_ID_CONSTFRAME0,
@@ -136,12 +144,22 @@ static const enum dc_link_id prim_sels[] = {
 	LINK_ID_LAYERBLEND1_MX8QXP,
 	LINK_ID_LAYERBLEND2_MX8QXP,
 	LINK_ID_LAYERBLEND3_MX8QXP,
+	LINK_ID_LAST
 };
 
-static const enum dc_link_id sec_sels[] = {
+static const enum dc_link_id sec_sels_imx8qxp[] = {
 	LINK_ID_NONE,
 	LINK_ID_FETCHWARP2,
 	LINK_ID_FETCHLAYER0,
+	LINK_ID_LAST
+};
+
+static const struct dc_lb_subdev_match_data dc_lb_match_data_imx8qxp = {
+	.pri_sels = prim_sels_imx8qxp,
+	.sec_sels = sec_sels_imx8qxp,
+	.first_lb = LINK_ID_LAYERBLEND0_MX8QXP,
+	.last_cf = 5,
+	.info = dc_lb_info_imx8qxp,
 };
 
 enum dc_link_id dc_lb_get_link_id(struct dc_lb *lb)
@@ -151,11 +169,10 @@ enum dc_link_id dc_lb_get_link_id(struct dc_lb *lb)
 
 void dc_lb_pec_dynamic_prim_sel(struct dc_lb *lb, enum dc_link_id prim)
 {
-	int fixed_sels_num = ARRAY_SIZE(prim_sels) - 4;
 	int i;
 
-	for (i = 0; i < fixed_sels_num + lb->id; i++) {
-		if (prim_sels[i] == prim) {
+	for (i = 0; i < lb->last_cf + lb->id; i++) {
+		if (lb->pri_sels[i] == prim) {
 			regmap_write_bits(lb->reg_pec, PIXENGCFG_DYNAMIC,
 					  PIXENGCFG_DYNAMIC_PRIM_SEL_MASK,
 					  PIXENGCFG_DYNAMIC_PRIM_SEL(prim));
@@ -168,10 +185,10 @@ void dc_lb_pec_dynamic_prim_sel(struct dc_lb *lb, enum dc_link_id prim)
 
 void dc_lb_pec_dynamic_sec_sel(struct dc_lb *lb, enum dc_link_id sec)
 {
-	int i;
+	int i = 0;
 
-	for (i = 0; i < ARRAY_SIZE(sec_sels); i++) {
-		if (sec_sels[i] == sec) {
+	while (lb->sec_sels[i] != LINK_ID_LAST) {
+		if (lb->sec_sels[i++] == sec) {
 			regmap_write_bits(lb->reg_pec, PIXENGCFG_DYNAMIC,
 					  PIXENGCFG_DYNAMIC_SEC_SEL_MASK,
 					  PIXENGCFG_DYNAMIC_SEC_SEL(sec));
@@ -244,6 +261,8 @@ void dc_lb_init(struct dc_lb *lb)
 
 static int dc_lb_bind(struct device *dev, struct device *master, void *data)
 {
+	const struct dc_lb_subdev_match_data *dc_lb_match_data = device_get_match_data(dev);
+	const struct dc_subdev_info *dc_lb_info = dc_lb_match_data->info;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dc_drm_device *dc_drm = data;
 	struct resource *res_pec;
@@ -280,7 +299,10 @@ static int dc_lb_bind(struct device *dev, struct device *master, void *data)
 	}
 
 	lb->dev = dev;
-	lb->link = LINK_ID_LAYERBLEND0_MX8QXP + lb->id;
+	lb->link = dc_lb_match_data->first_lb + lb->id;
+	lb->pri_sels = dc_lb_match_data->pri_sels;
+	lb->sec_sels = dc_lb_match_data->sec_sels;
+	lb->last_cf = dc_lb_match_data->last_cf;
 
 	dc_drm->lb[lb->id] = lb;
 
@@ -309,7 +331,7 @@ static void dc_lb_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id dc_lb_dt_ids[] = {
-	{ .compatible = "fsl,imx8qxp-dc-layerblend" },
+	{ .compatible = "fsl,imx8qxp-dc-layerblend", .data = &dc_lb_match_data_imx8qxp },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_lb_dt_ids);
