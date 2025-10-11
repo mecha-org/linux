@@ -4,6 +4,7 @@
  */
 
 #include <linux/container_of.h>
+#include <linux/of.h>
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
@@ -185,9 +186,11 @@ static void dc_plane_atomic_disable(struct drm_plane *plane,
 	if (!drm_dev_enter(plane->dev, &idx))
 		return;
 
-	/* disable fetchunit in shadow */
-	fu_ops = dc_fu_get_ops(dplane->fu);
-	fu_ops->disable_src_buf(dplane->fu, DC_FETCHUNIT_FRAC0);
+	/* disable fetchunit in shadow on i.MX8QXP */
+	if (!dplane->keep_fu) {
+		fu_ops = dc_fu_get_ops(dplane->fu);
+		fu_ops->disable_src_buf(dplane->fu, DC_FETCHUNIT_FRAC0);
+	}
 
 	/* set ExtDst's source to ConstFrame */
 	dc_ed_pec_src_sel(dplane->ed, dc_cf_get_link_id(dplane->cf));
@@ -219,6 +222,7 @@ int dc_plane_init(struct dc_drm_device *dc_drm, struct dc_plane *dc_plane)
 	dc_plane->cf = dc_drm->pe->cf_cont[plane->index];
 	dc_plane->lb = dc_drm->pe->lb[plane->index];
 	dc_plane->ed = dc_drm->pe->ed_cont[plane->index];
+	dc_plane->keep_fu = of_device_is_compatible(dc_drm->base.dev->of_node, "fsl,imx95-dc");
 
 	return 0;
 }
