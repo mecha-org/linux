@@ -58,6 +58,7 @@ enum fsl_ldb_devtype {
 	IMX6SX_LDB,
 	IMX8MP_LDB,
 	IMX93_LDB,
+	IMX95_LDB,
 };
 
 struct fsl_ldb_devdata {
@@ -71,6 +72,9 @@ static const struct fsl_ldb_devdata fsl_ldb_devdata[] = {
 	},
 	[IMX8MP_LDB] = { },
 	[IMX93_LDB] = {
+		.lvds_en_bit = true,
+	},
+	[IMX95_LDB] = {
 		.lvds_en_bit = true,
 	},
 };
@@ -239,7 +243,7 @@ static void fsl_ldb_atomic_disable(struct drm_bridge *bridge,
 	clk_disable_unprepare(fsl_ldb->clk);
 }
 
-#define MAX_INPUT_SEL_FORMATS 1
+#define MAX_INPUT_SEL_FORMATS 4
 static u32 *
 fsl_ldb_atomic_get_input_bus_fmts(struct drm_bridge *bridge,
 				  struct drm_bridge_state *bridge_state,
@@ -248,17 +252,26 @@ fsl_ldb_atomic_get_input_bus_fmts(struct drm_bridge *bridge,
 				  u32 output_fmt,
 				  unsigned int *num_input_fmts)
 {
+	struct fsl_ldb *fsl_ldb = to_fsl_ldb(bridge);
 	u32 *input_fmts;
 
 	*num_input_fmts = 0;
 
-	input_fmts = kcalloc(MAX_INPUT_SEL_FORMATS, sizeof(*input_fmts),
+	input_fmts = kcalloc(MAX_INPUT_SEL_FORMATS, MAX_INPUT_SEL_FORMATS * sizeof(*input_fmts),
 			     GFP_KERNEL);
 	if (!input_fmts)
 		return NULL;
 
-	input_fmts[0] = MEDIA_BUS_FMT_RGB888_1X24;
-	*num_input_fmts = MAX_INPUT_SEL_FORMATS;
+	if (of_device_is_compatible(fsl_ldb->dev->of_node, "fsl,imx95-ldb")) {
+		input_fmts[0] = MEDIA_BUS_FMT_RGB666_1X7X3_SPWG;
+		input_fmts[1] = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG;
+		input_fmts[2] = MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA;
+		input_fmts[3] = MEDIA_BUS_FMT_FIXED;
+		*num_input_fmts = 4;
+	} else {
+		input_fmts[0] = MEDIA_BUS_FMT_RGB888_1X24;
+		*num_input_fmts = 1;
+	}
 
 	return input_fmts;
 }
@@ -403,6 +416,8 @@ static const struct of_device_id fsl_ldb_match[] = {
 	  .data = &fsl_ldb_devdata[IMX8MP_LDB], },
 	{ .compatible = "fsl,imx93-ldb",
 	  .data = &fsl_ldb_devdata[IMX93_LDB], },
+	{ .compatible = "fsl,imx95-ldb",
+	  .data = &fsl_ldb_devdata[IMX95_LDB], },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, fsl_ldb_match);
