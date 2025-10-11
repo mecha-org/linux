@@ -65,6 +65,9 @@ struct dc_lb {
 	struct regmap *reg_cfg;
 	int id;
 	enum dc_link_id link;
+	const enum dc_link_id *pri_sels;
+	const enum dc_link_id *sec_sels;
+	unsigned int last_cf;
 };
 
 struct dc_pe {
