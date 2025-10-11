@@ -56,6 +56,7 @@ struct dc_ed {
 	struct regmap *reg_pec;
 	struct regmap *reg_cfg;
 	int irq_shdload;
+	const enum dc_link_id *src_sels;
 };
 
 struct dc_lb {
