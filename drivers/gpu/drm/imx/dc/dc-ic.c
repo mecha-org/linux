@@ -24,8 +24,13 @@
 #define USERINTERRUPTCLEAR(n)	(0x50 + 4 * (n))
 #define USERINTERRUPTSTATUS(n)	(0x58 + 4 * (n))
 
-#define IRQ_COUNT_MAX	49
-#define REG_NUM_MAX	2
+#define INTERRUPTENABLE_MX95(n)	(0x8 + 4 * (n))
+#define INTERRUPTPRESET_MX95(n)	(0x14 + 4 * (n))
+#define INTERRUPTCLEAR_MX95(n)	(0x20 + 4 * (n))
+#define INTERRUPTSTATUS_MX95(n)	(0x2c + 4 * (n))
+
+#define IRQ_COUNT_MAX	86
+#define REG_NUM_MAX	3
 
 struct dc_ic_data {
 	struct regmap		*regs;
@@ -107,6 +112,57 @@ static const struct dc_ic_subdev_match_data dc_ic_match_data_imx8qxp = {
 	.user_irq = true,
 	.unused_irq = { 0x00000000, 0xfffe0008 },
 	.reserved_irq = 35,
+};
+
+static const struct regmap_range dc_ic_regmap_write_ranges_imx95[] = {
+	regmap_reg_range(INTERRUPTENABLE_MX95(0), INTERRUPTCLEAR_MX95(2)),
+};
+
+static const struct regmap_access_table dc_ic_regmap_write_table_imx95 = {
+	.yes_ranges = dc_ic_regmap_write_ranges_imx95,
+	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_write_ranges_imx95),
+};
+
+static const struct regmap_range dc_ic_regmap_read_ranges_imx95[] = {
+	regmap_reg_range(INTERRUPTENABLE_MX95(0), INTERRUPTENABLE_MX95(2)),
+	regmap_reg_range(INTERRUPTSTATUS_MX95(0), INTERRUPTSTATUS_MX95(2)),
+};
+
+static const struct regmap_access_table dc_ic_regmap_read_table_imx95 = {
+	.yes_ranges = dc_ic_regmap_read_ranges_imx95,
+	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_read_ranges_imx95),
+};
+
+static const struct regmap_range dc_ic_regmap_volatile_ranges_imx95[] = {
+	regmap_reg_range(INTERRUPTPRESET_MX95(0), INTERRUPTCLEAR_MX95(2)),
+};
+
+static const struct regmap_access_table dc_ic_regmap_volatile_table_imx95 = {
+	.yes_ranges = dc_ic_regmap_volatile_ranges_imx95,
+	.n_yes_ranges = ARRAY_SIZE(dc_ic_regmap_volatile_ranges_imx95),
+};
+
+static const struct regmap_config dc_ic_regmap_config_imx95 = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.fast_io = true,
+	.wr_table = &dc_ic_regmap_write_table_imx95,
+	.rd_table = &dc_ic_regmap_read_table_imx95,
+	.volatile_table = &dc_ic_regmap_volatile_table_imx95,
+	.max_register = INTERRUPTSTATUS_MX95(2),
+};
+
+static const struct dc_ic_subdev_match_data dc_ic_match_data_imx95 = {
+	.regmap_config = &dc_ic_regmap_config_imx95,
+	.reg_enable = INTERRUPTENABLE_MX95(0),
+	.reg_clear = INTERRUPTCLEAR_MX95(0),
+	.reg_status = INTERRUPTSTATUS_MX95(0),
+	.reg_count = 3,
+	.irq_count = 86,
+	.user_irq = false,
+	.unused_irq = { 0x00000000, 0x00000000, 0xffc00000 },
+	.reserved_irq = -1,
 };
 
 static void dc_ic_irq_handler(struct irq_desc *desc)
@@ -304,6 +360,7 @@ static const struct dev_pm_ops dc_ic_pm_ops = {
 
 static const struct of_device_id dc_ic_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-dc-intc", .data = &dc_ic_match_data_imx8qxp },
+	{ .compatible = "fsl,imx95-dc-intc", .data = &dc_ic_match_data_imx95 },
 	{ /* sentinel */ }
 };
 

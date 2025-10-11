@@ -64,7 +64,8 @@ dc_add_components(struct device *dev, struct component_match **matchptr)
 
 	for_each_available_child_of_node(dev->of_node, child) {
 		/* The interrupt controller is not a component. */
-		if (of_device_is_compatible(child, "fsl,imx8qxp-dc-intc"))
+		if (of_device_is_compatible(child, "fsl,imx8qxp-dc-intc") ||
+		    of_device_is_compatible(child, "fsl,imx95-dc-intc"))
 			continue;
 
 		drm_of_component_match_add(dev, matchptr, component_compare_of,
@@ -274,6 +275,7 @@ static const struct dev_pm_ops dc_pm_ops = {
 
 static const struct of_device_id dc_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-dc", },
+	{ .compatible = "fsl,imx95-dc", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_dt_ids);

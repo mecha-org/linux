@@ -50,6 +50,7 @@
 #define  COL(x)			FIELD_PREP(GENMASK(13, 0), (x))
 
 #define OFFSET_MX8QXP		0x00
+#define OFFSET_MX95		0x24
 
 #define PACFG(o)		(0x54 + (o))
 #define SACFG(o)		(0x58 + (o))
@@ -103,6 +104,12 @@ static const struct dc_subdev_info dc_fg_info_imx8qxp[] = {
 	{ /* sentinel */ },
 };
 
+static const struct dc_subdev_info dc_fg_info_imx95[] = {
+	{ .reg_start = 0x4b6b0000, .id = 0, },
+	{ .reg_start = 0x4b730000, .id = 1, },
+	{ /* sentinel */ },
+};
+
 static const struct regmap_range dc_fg_regmap_write_ranges_imx8qxp[] = {
 	regmap_reg_range(FGSTCTRL, VTCFG2),
 	regmap_reg_range(PKICKCONFIG, SKICKCONFIG),
@@ -141,6 +148,46 @@ static const struct dc_fg_subdev_match_data dc_fg_match_data_imx8qxp = {
 	.regmap_config = &dc_fg_regmap_config_imx8qxp,
 	.reg_offset = OFFSET_MX8QXP,
 	.info = dc_fg_info_imx8qxp,
+};
+
+static const struct regmap_range dc_fg_regmap_write_ranges_imx95[] = {
+	regmap_reg_range(FGSTCTRL, VTCFG2),
+	regmap_reg_range(PKICKCONFIG, SKICKCONFIG),
+	regmap_reg_range(PACFG(OFFSET_MX95), FGSLR(OFFSET_MX95)),
+	regmap_reg_range(FGCHSTATCLR(OFFSET_MX95), FGCHSTATCLR(OFFSET_MX95)),
+};
+
+static const struct regmap_range dc_fg_regmap_read_ranges_imx95[] = {
+	regmap_reg_range(FGSTCTRL, VTCFG2),
+	regmap_reg_range(PKICKCONFIG, SKICKCONFIG),
+	regmap_reg_range(PACFG(OFFSET_MX95), FGENABLE(OFFSET_MX95)),
+	regmap_reg_range(FGTIMESTAMP(OFFSET_MX95), FGCHSTAT(OFFSET_MX95)),
+};
+
+static const struct regmap_access_table dc_fg_regmap_write_table_imx95 = {
+	.yes_ranges = dc_fg_regmap_write_ranges_imx95,
+	.n_yes_ranges = ARRAY_SIZE(dc_fg_regmap_write_ranges_imx95),
+};
+
+static const struct regmap_access_table dc_fg_regmap_read_table_imx95 = {
+	.yes_ranges = dc_fg_regmap_read_ranges_imx95,
+	.n_yes_ranges = ARRAY_SIZE(dc_fg_regmap_read_ranges_imx95),
+};
+
+static const struct regmap_config dc_fg_regmap_config_imx95 = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.fast_io = true,
+	.wr_table = &dc_fg_regmap_write_table_imx95,
+	.rd_table = &dc_fg_regmap_read_table_imx95,
+	.max_register = FGCHSTATCLR(OFFSET_MX95),
+};
+
+static const struct dc_fg_subdev_match_data dc_fg_match_data_imx95 = {
+	.regmap_config = &dc_fg_regmap_config_imx95,
+	.reg_offset = OFFSET_MX95,
+	.info = dc_fg_info_imx95,
 };
 
 static inline void dc_fg_enable_shden(struct dc_fg *fg)
@@ -379,6 +426,7 @@ static void dc_fg_remove(struct platform_device *pdev)
 
 static const struct of_device_id dc_fg_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-dc-framegen", .data = &dc_fg_match_data_imx8qxp },
+	{ .compatible = "fsl,imx95-dc-framegen", .data = &dc_fg_match_data_imx95 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_fg_dt_ids);

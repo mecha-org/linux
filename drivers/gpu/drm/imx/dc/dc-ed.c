@@ -48,6 +48,14 @@ static const struct dc_subdev_info dc_ed_info_imx8qxp[] = {
 	{ /* sentinel */ },
 };
 
+static const struct dc_subdev_info dc_ed_info_imx95[] = {
+	{ .reg_start = 0x4b511000, .id = 0, },
+	{ .reg_start = 0x4b551000, .id = 1, },
+	{ .reg_start = 0x4b521000, .id = 4, },
+	{ .reg_start = 0x4b561000, .id = 5, },
+	{ /* sentinel */ },
+};
+
 static const struct regmap_range dc_ed_pec_regmap_write_ranges[] = {
 	regmap_reg_range(PIXENGCFG_STATIC, PIXENGCFG_STATIC),
 	regmap_reg_range(PIXENGCFG_DYNAMIC, PIXENGCFG_DYNAMIC),
@@ -124,9 +132,25 @@ static const enum dc_link_id src_sels_imx8qxp[] = {
 	LINK_ID_LAST	/* sentinel */
 };
 
+static const enum dc_link_id src_sels_imx95[] = {
+	LINK_ID_NONE,
+	LINK_ID_LAYERBLEND5_MX95,
+	LINK_ID_LAYERBLEND4_MX95,
+	LINK_ID_LAYERBLEND3_MX95,
+	LINK_ID_LAYERBLEND2_MX95,
+	LINK_ID_LAYERBLEND1_MX95,
+	LINK_ID_LAYERBLEND0_MX95,
+	LINK_ID_LAST	/* sentinel */
+};
+
 static const struct dc_ed_subdev_match_data dc_ed_match_data_imx8qxp = {
 	.src_sels = src_sels_imx8qxp,
 	.info = dc_ed_info_imx8qxp,
+};
+
+static const struct dc_ed_subdev_match_data dc_ed_match_data_imx95 = {
+	.src_sels = src_sels_imx95,
+	.info = dc_ed_info_imx95,
 };
 
 static inline void dc_ed_pec_enable_shden(struct dc_ed *ed)
@@ -288,6 +312,7 @@ static void dc_ed_remove(struct platform_device *pdev)
 
 static const struct of_device_id dc_ed_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-dc-extdst", .data = &dc_ed_match_data_imx8qxp },
+	{ .compatible = "fsl,imx95-dc-extdst", .data = &dc_ed_match_data_imx95 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_ed_dt_ids);
