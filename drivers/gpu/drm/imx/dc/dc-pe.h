@@ -33,6 +33,7 @@ enum dc_link_id {
 	LINK_ID_LAYERBLEND1_MX8QXP	= 0x22,
 	LINK_ID_LAYERBLEND2_MX8QXP	= 0x23,
 	LINK_ID_LAYERBLEND3_MX8QXP	= 0x24,
+	LINK_ID_LAST			= 0xffffffff, /* sentinel */
 };
 
 enum dc_lb_mode {

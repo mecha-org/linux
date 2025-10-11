@@ -115,6 +115,7 @@ static const enum dc_link_id src_sels[] = {
 	LINK_ID_LAYERBLEND2_MX8QXP,
 	LINK_ID_LAYERBLEND1_MX8QXP,
 	LINK_ID_LAYERBLEND0_MX8QXP,
+	LINK_ID_LAST	/* sentinel */
 };
 
 static inline void dc_ed_pec_enable_shden(struct dc_ed *ed)
@@ -140,10 +141,10 @@ static inline void dc_ed_pec_div_reset(struct dc_ed *ed)
 
 void dc_ed_pec_src_sel(struct dc_ed *ed, enum dc_link_id src)
 {
-	int i;
+	int i = 0;
 
-	for (i = 0; i < ARRAY_SIZE(src_sels); i++) {
-		if (src_sels[i] == src) {
+	while (src_sels[i] != LINK_ID_LAST) {
+		if (src_sels[i++] == src) {
 			regmap_write(ed->reg_pec, PIXENGCFG_DYNAMIC, src);
 			return;
 		}
