@@ -62,20 +62,20 @@ static void dc_fl_set_fmt(struct dc_fu *fu, enum dc_fu_frac frac,
 
 	dc_fu_set_src_bpp(fu, frac, format->cpp[0] * 8);
 
-	regmap_write_bits(fu->reg_cfg, LAYERPROPERTY(frac),
+	regmap_write_bits(fu->reg_cfg, fu->reg_layerproperty[frac],
 			  YUVCONVERSIONMODE_MASK,
 			  YUVCONVERSIONMODE(YUVCONVERSIONMODE_OFF));
 
 	dc_fu_get_pixel_format_bits(fu, format->format, &bits);
 	dc_fu_get_pixel_format_shifts(fu, format->format, &shifts);
 
-	regmap_write(fu->reg_cfg, COLORCOMPONENTBITS(frac), bits);
-	regmap_write(fu->reg_cfg, COLORCOMPONENTSHIFT(frac), shifts);
+	regmap_write(fu->reg_cfg, fu->reg_colorcomponentbits[frac], bits);
+	regmap_write(fu->reg_cfg, fu->reg_colorcomponentshift[frac], shifts);
 }
 
 static void dc_fl_set_framedimensions(struct dc_fu *fu, int w, int h)
 {
-	regmap_write(fu->reg_cfg, FRAMEDIMENSIONS,
+	regmap_write(fu->reg_cfg, fu->reg_framedimensions,
 		     FRAMEWIDTH(w) | FRAMEHEIGHT(h));
 }
 
@@ -132,12 +132,16 @@ static int dc_fl_bind(struct device *dev, struct device *master, void *data)
 		fu->reg_baseaddr[i]		  = BASEADDRESS(i);
 		fu->reg_sourcebufferattributes[i] = SOURCEBUFFERATTRIBUTES(i);
 		fu->reg_sourcebufferdimension[i]  = SOURCEBUFFERDIMENSION(i);
+		fu->reg_colorcomponentbits[i]     = COLORCOMPONENTBITS(i);
+		fu->reg_colorcomponentshift[i]    = COLORCOMPONENTSHIFT(i);
 		fu->reg_layeroffset[i]		  = LAYEROFFSET(i);
 		fu->reg_clipwindowoffset[i]	  = CLIPWINDOWOFFSET(i);
 		fu->reg_clipwindowdimensions[i]	  = CLIPWINDOWDIMENSIONS(i);
 		fu->reg_constantcolor[i]	  = CONSTANTCOLOR(i);
 		fu->reg_layerproperty[i]	  = LAYERPROPERTY(i);
 	}
+	fu->reg_burstbuffermanagement = BURSTBUFFERMANAGEMENT;
+	fu->reg_framedimensions = FRAMEDIMENSIONS;
 	snprintf(fu->name, sizeof(fu->name), "FetchLayer%d", id);
 
 	dc_fl_set_ops(fu);
