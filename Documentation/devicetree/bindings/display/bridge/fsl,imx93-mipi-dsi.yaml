@@ -14,12 +14,11 @@ description: |
   Designware MIPI DPHY embedded in Freescale i.MX93 SoC.  Some configurations
   and extensions to them are controlled by i.MX93 media blk-ctrl.
 
-allOf:
-  - $ref: snps,dw-mipi-dsi.yaml#
-
 properties:
   compatible:
-    const: fsl,imx93-mipi-dsi
+    enum:
+      - fsl,imx93-mipi-dsi
+      - fsl,imx95-mipi-dsi
 
   clocks:
     items:
@@ -46,13 +45,52 @@ properties:
       controller and MIPI DPHY PLL related configurations through PLL SoC
       interface.
 
+  fsl,disp-master-csr:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      i.MX95 Display Master CSR is a syscon which includes registers to
+      control DSI clock settings, clock gating, and pixel link select.
+
+  fsl,disp-stream-csr:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      i.MX95 Display Stream CSR is a syscon which includes configuration
+      and status registers for the DSI host.
+
+  fsl,mipi-combo-phy-csr:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      i.MX95 Display Stream CSR is a syscon which configuration and status
+      registers for the MIPI Tx DPHY module in the Camera domain.
+
   power-domains:
     maxItems: 1
+
+allOf:
+  - $ref: snps,dw-mipi-dsi.yaml#
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx93-mipi-dsi
+    then:
+      required:
+        - fsl,media-blk-ctrl
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-mipi-dsi
+    then:
+      required:
+        - fsl,disp-master-csr
+        - fsl,disp-stream-csr
+        - fsl,mipi-combo-phy-csr
 
 required:
   - compatible
   - interrupts
-  - fsl,media-blk-ctrl
   - power-domains
 
 unevaluatedProperties: false
