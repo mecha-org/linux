@@ -18,7 +18,9 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,imx8qxp-dc-constframe
+    enum:
+      - fsl,imx8qxp-dc-constframe
+      - fsl,imx95-dc-constframe
 
   reg:
     maxItems: 2

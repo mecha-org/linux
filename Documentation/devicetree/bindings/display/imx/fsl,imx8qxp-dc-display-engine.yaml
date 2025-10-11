@@ -16,7 +16,9 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,imx8qxp-dc-display-engine
+    enum:
+      - fsl,imx8qxp-dc-display-engine
+      - fsl,imx95-dc-display-engine
 
   reg:
     maxItems: 2
@@ -42,10 +44,10 @@ properties:
     maxItems: 1
 
   "#address-cells":
-    const: 1
+    enum: [1, 2]
 
   "#size-cells":
-    const: 1
+    enum: [1, 2]
 
   ranges: true
 
@@ -58,13 +60,23 @@ patternProperties:
       compatible:
         const: fsl,imx8qxp-dc-dither
 
+  "^domainblend@[0-9a-f]+$":
+    type: object
+    additionalProperties: true
+
+    properties:
+      compatible:
+        const: fsl,imx95-dc-domainblend
+
   "^framegen@[0-9a-f]+$":
     type: object
     additionalProperties: true
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-framegen
+        enum:
+          - fsl,imx8qxp-dc-framegen
+          - fsl,imx95-dc-framegen
 
   "^gammacor@[0-9a-f]+$":
     type: object
@@ -90,13 +102,15 @@ patternProperties:
       compatible:
         const: fsl,imx8qxp-dc-signature
 
-  "^tcon@[0-9a-f]+$":
+  "^tcon(@[0-9a-f]+)?$":
     type: object
     additionalProperties: true
 
     properties:
       compatible:
-        const: fsl,imx8qxp-dc-tcon
+        enum:
+          - fsl,imx8qxp-dc-tcon
+          - fsl,imx95-dc-tcon
 
 required:
   - compatible
@@ -108,6 +122,25 @@ required:
   - "#address-cells"
   - "#size-cells"
   - ranges
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-dc-display-engine
+    then:
+      properties:
+        "#address-cells":
+          const: 2
+        "#size-cells":
+          const: 2
+    else:
+      properties:
+        "#address-cells":
+          const: 1
+        "#size-cells":
+          const: 1
 
 additionalProperties: false
 

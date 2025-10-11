@@ -32,7 +32,9 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,imx8qxp-dc-extdst
+    enum:
+      - fsl,imx8qxp-dc-extdst
+      - fsl,imx95-dc-extdst
 
   reg:
     maxItems: 2

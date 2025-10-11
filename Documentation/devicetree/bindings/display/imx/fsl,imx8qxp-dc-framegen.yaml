@@ -16,18 +16,27 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,imx8qxp-dc-framegen
+    enum:
+      - fsl,imx8qxp-dc-framegen
+      - fsl,imx95-dc-framegen
 
   reg:
     maxItems: 1
 
   clocks:
-    maxItems: 1
+    minItems: 1
+    maxItems: 6
+
+  clock-names:
+    minItems: 1
+    maxItems: 6
 
   interrupts:
+    minItems: 6
     maxItems: 8
 
   interrupt-names:
+    minItems: 6
     items:
       - const: int0
       - const: int1
