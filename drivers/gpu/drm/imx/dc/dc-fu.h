@@ -15,10 +15,7 @@
 
 #include "dc-pe.h"
 
-#define FRAC_OFFSET			0x28
-
 #define STATICCONTROL			0x8
-#define BURSTBUFFERMANAGEMENT		0xc
 
 /* COLORCOMPONENTBITS */
 #define R_BITS(x)			FIELD_PREP_CONST(GENMASK(27, 24), (x))
