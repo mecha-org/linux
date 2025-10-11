@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/bridge/fsl,imx95-pixel-link.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Freescale i.MX95 Display Pixel Link
+
+maintainers:
+  - Liu Ying <victor.liu@nxp.com>
+  - Marek Vasut <marek.vasut@mailbox.org>
+
+description: |
+  The Freescale i.MX95 Display Pixel Link (DPL) forms a standard
+  asynchronous linkage between pixel sources (display controller
+  or camera module) and pixel consumers(imaging or displays).
+  It consists of two distinct functions, a pixel transfer function
+  and a control interface. Multiple pixel channels can exist per one
+  control channel. This binding documentation is only for pixel links
+  whose pixel sources are display controllers.
+
+  The i.MX95 Display Pixel Link is accessed via syscon.
+
+properties:
+  compatible:
+    const: fsl,imx95-dc-pixel-link
+
+  fsl,dc-stream-id:
+    $ref: /schemas/types.yaml#/definitions/uint8
+    description: |
+      u8 value representing the display controller stream index that the pixel
+      link connects to.
+    enum: [0, 1]
+
+  fsl,syscon:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: |
+      A phandle which points to Control and Status Registers (CSR) module.
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: The pixel link input port node from upstream video source.
+
+      port@1:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: The pixel link output port node to downstream bridge.
+
+    required:
+      - port@0
+      - port@1
+
+required:
+  - compatible
+  - fsl,dc-stream-id
+  - fsl,syscon
+  - ports
+
+additionalProperties: false
+
+examples:
+  - |
+    dc0-pixel-link0 {
+        compatible = "fsl,imx95-dc-pixel-link";
+        fsl,dc-stream-id = /bits/ 8 <0>;
+        fsl,syscon = <&dispmix_csr>;
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            /* from DC 0 pixel interleaver channel0 */
+            port@0 {
+                reg = <0>;
+
+                dc0_pixel_link0_dc0_pixel_interleaver_ch0: endpoint {
+                    remote-endpoint = <&dc0_pixel_interleaver_ch0_dc0_pixel_link0>;
+                };
+            };
+
+            /* to MIPI/LVDS combo subsystems */
+            port@1 {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg = <1>;
+
+                dc0_pixel_link0_mipi_lvds_0_pxl2dpi: endpoint@0 {
+                    reg = <0>;
+                    remote-endpoint = <&mipi_lvds_0_pxl2dpi_dc0_pixel_link0>;
+                };
+
+                dc0_pixel_link0_mipi_lvds_1_pxl2dpi: endpoint@1 {
+                    reg = <1>;
+                    remote-endpoint = <&mipi_lvds_1_pxl2dpi_dc0_pixel_link0>;
+                };
+            };
+        };
+    };
