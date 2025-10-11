@@ -130,6 +130,8 @@ struct dc_plane {
 	struct dc_lb *lb;
 	/** @ed: content stream extdst */
 	struct dc_ed *ed;
+	/** @keep_fu: keep FU running on iMX95 */
+	bool keep_fu;
 };
 
 #endif /* __DC_KMS_H__ */
