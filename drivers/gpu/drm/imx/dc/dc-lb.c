@@ -8,6 +8,7 @@
 #include <linux/component.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 
 #include <drm/drm_blend.h>
@@ -78,11 +79,21 @@ enum dc_lb_shadow_sel {
 	BOTH = 0x2,
 };
 
-static const struct dc_subdev_info dc_lb_info[] = {
+static const struct dc_subdev_info dc_lb_info_imx8qxp[] = {
 	{ .reg_start = 0x56180ba0, .id = 0, },
 	{ .reg_start = 0x56180bc0, .id = 1, },
 	{ .reg_start = 0x56180be0, .id = 2, },
 	{ .reg_start = 0x56180c00, .id = 3, },
+	{ /* sentinel */ },
+};
+
+static const struct dc_subdev_info dc_lb_info_imx95[] = {
+	{ .reg_start = 0x4b571000, .id = 0, },
+	{ .reg_start = 0x4b581000, .id = 1, },
+	{ .reg_start = 0x4b591000, .id = 2, },
+	{ .reg_start = 0x4b5a1000, .id = 3, },
+	{ .reg_start = 0x4b5b1000, .id = 4, },
+	{ .reg_start = 0x4b5c1000, .id = 5, },
 	{ /* sentinel */ },
 };
 
@@ -160,6 +171,44 @@ static const struct dc_lb_subdev_match_data dc_lb_match_data_imx8qxp = {
 	.first_lb = LINK_ID_LAYERBLEND0_MX8QXP,
 	.last_cf = 5,
 	.info = dc_lb_info_imx8qxp,
+};
+
+static const enum dc_link_id prim_sels_imx95[] = {
+	/* common options */
+	LINK_ID_NONE,
+	LINK_ID_CONSTFRAME0,
+	LINK_ID_CONSTFRAME1,
+	LINK_ID_CONSTFRAME4_MX95,
+	LINK_ID_CONSTFRAME5_MX95,
+	/*
+	 * special options:
+	 * layerblend(n) has n special options,
+	 * from layerblend0 to layerblend(n - 1), e.g.,
+	 * layerblend3 has 3 special options -
+	 * layerblend0/1/2.
+	 */
+	LINK_ID_LAYERBLEND0_MX95,
+	LINK_ID_LAYERBLEND1_MX95,
+	LINK_ID_LAYERBLEND2_MX95,
+	LINK_ID_LAYERBLEND3_MX95,
+	LINK_ID_LAYERBLEND4_MX95,
+	LINK_ID_LAYERBLEND5_MX95,
+	LINK_ID_LAST
+};
+
+static const enum dc_link_id sec_sels_imx95[] = {
+	LINK_ID_NONE,
+	LINK_ID_FETCHLAYER0,
+	LINK_ID_FETCHLAYER1_MX95,
+	LINK_ID_LAST
+};
+
+static const struct dc_lb_subdev_match_data dc_lb_match_data_imx95 = {
+	.pri_sels = prim_sels_imx95,
+	.sec_sels = sec_sels_imx95,
+	.first_lb = LINK_ID_LAYERBLEND0_MX95,
+	.last_cf = 7,
+	.info = dc_lb_info_imx95,
 };
 
 enum dc_link_id dc_lb_get_link_id(struct dc_lb *lb)
@@ -332,6 +381,7 @@ static void dc_lb_remove(struct platform_device *pdev)
 
 static const struct of_device_id dc_lb_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-dc-layerblend", .data = &dc_lb_match_data_imx8qxp },
+	{ .compatible = "fsl,imx95-dc-layerblend", .data = &dc_lb_match_data_imx95 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_lb_dt_ids);

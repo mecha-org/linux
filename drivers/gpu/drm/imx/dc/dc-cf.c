@@ -38,10 +38,24 @@ static const struct dc_subdev_info dc_cf_info_imx8qxp[] = {
 	{ /* sentinel */ },
 };
 
+static const struct dc_subdev_info dc_cf_info_imx95[] = {
+	{ .reg_start = 0x4b4f1000, .id = 0, },
+	{ .reg_start = 0x4b531000, .id = 1, },
+	{ .reg_start = 0x4b501000, .id = 4, },
+	{ .reg_start = 0x4b541000, .id = 5, },
+	{ /* sentinel */ },
+};
+
 static const struct dc_cf_subdev_match_data dc_cf_match_data_imx8qxp = {
 	.link_cf4 = LINK_ID_CONSTFRAME4_MX8QXP,
 	.link_cf5 = LINK_ID_CONSTFRAME5_MX8QXP,
 	.info = dc_cf_info_imx8qxp,
+};
+
+static const struct dc_cf_subdev_match_data dc_cf_match_data_imx95 = {
+	.link_cf4 = LINK_ID_CONSTFRAME4_MX95,
+	.link_cf5 = LINK_ID_CONSTFRAME5_MX95,
+	.info = dc_cf_info_imx95,
 };
 
 static const struct regmap_range dc_cf_regmap_ranges[] = {
@@ -172,6 +186,7 @@ static void dc_cf_remove(struct platform_device *pdev)
 
 static const struct of_device_id dc_cf_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-dc-constframe", .data = &dc_cf_match_data_imx8qxp },
+	{ .compatible = "fsl,imx95-dc-constframe", .data = &dc_cf_match_data_imx95 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dc_cf_dt_ids);
