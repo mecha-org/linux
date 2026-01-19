@@ -47,6 +47,69 @@
 			 1800000 1>;
 	};
 
+	sound-max98090 {
+	        compatible = "simple-audio-card";
+	        simple-audio-card,name = "max98090-audio";
+	        simple-audio-card,format = "i2s";
+	        simple-audio-card,frame-master = <&cpudai>;
+	        simple-audio-card,bitclock-master = <&cpudai>;
+	        simple-audio-card,bitclock-inversion;
+
+	        simple-audio-card,widgets =
+	                "Microphone", "Mic Jack",
+	                "Speakers", "Speakers",
+	                "Line", "Line In",
+	                "Line", "Line Out",
+	                "Headphone", "Headphone Jack";
+
+	        simple-audio-card,routing =
+	                "Headphone Jack", "HPL",
+	                "Headphone Jack", "HPR",
+	                "Line Out", "RCVL",
+	                "Line Out", "RCVR",
+	        /* Uncomment any of these below lines if the Line Input(s) is(are) used else leave it as such. */
+	                "IN1","Line In",
+	                "IN2","Line In",
+	                "IN5", "Line In",  /* IN1/IN2/IN3/IN4/IN6 (For single-ended input) */
+	                "IN34", "Line In", /* IN34 (For differential inputs) */
+	                "IN56", "Line In", /* IN34 (For differential inputs) */
+	                "MIC1", "Mic Jack",
+	                "MIC2", "Mic Jack",
+	                "Mic Jack", "MICBIAS",
+	                "IN1", "MICBIAS",
+	                "MIC1","IN1",
+	                "MIC2","IN1",
+	                "Speakers", "SPKL",
+	                "Speakers", "SPKR",
+
+	                /* DMIC-3 Routings */
+	                "DMICL", "DMIC Mux",
+	                "DMIC Mux", "DMIC3",
+	                "DMIC3", "DMIC3_ENA",
+	                "DMIC3", "AHPF",
+
+	                /* DMIC-4 Routings */
+	                "DMICR", "DMIC Mux",
+	                "DMIC Mux", "DMIC4",
+	                "DMIC4", "DMIC4_ENA",
+	                "DMIC3", "AHPF",
+	                "DMIC4", "AHPF",
+
+	                "HiFi Capture", "DMICL",
+	                "HiFi Capture", "DMICR";
+
+	        cpudai: simple-audio-card,cpu {
+	                sound-dai = <&sai3>;
+	                dai-tdm-slot-num = <2>;
+	                dai-tdm-slot-width = <32>;
+	        };
+
+	        simple-audio-card,codec {
+	                sound-dai = <&max98090>;
+	                clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>;
+	        };
+	};
+
 };
 
 &A53_0 {
@@ -200,6 +263,19 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4>;
 	status = "okay";
+
+	max98090: max98090@10 {
+	        #sound-dai-cells = <0>;
+	        pinctrl-names = "default";
+	        pinctrl-0 = <&pinctrl_sai3>;
+	        compatible = "maxim,max98091";
+	        reg = <0x10>;
+	        clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>;
+	        interrupt-parent = <&gpio1>;
+	        interrupts = <8 IRQ_TYPE_LEVEL_LOW>; /* SODIMM_218 */
+	        clock-names = "mclk";
+	};
+
 };
 
 &i2c5 {
@@ -321,6 +397,19 @@
 			};
 		};
 	};
+};
+
+&sai3 {
+	#sound-dai-cells = <0>;
+	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;
+	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <12288000>;
+	fsl,sai-mclk-direction-output;
+	status = "okay";
+};
+
+&sdma2 {
+       status = "okay";
 };
 
 &gpu_2d {
@@ -615,6 +704,16 @@
 		fsl,pins = <
 			MX8MP_IOMUXC_SAI1_RXD2__GPIO4_IO04		0x184
 			MX8MP_IOMUXC_SAI1_RXD3__GPIO4_IO05		0x184
+		>;
+	};
+
+	pinctrl_sai3: sai3grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI3_TXC__AUDIOMIX_SAI3_TX_BCLK	0x1d6
+			MX8MP_IOMUXC_SAI3_TXFS__AUDIOMIX_SAI3_TX_SYNC	0x1d6
+			MX8MP_IOMUXC_SAI3_MCLK__AUDIOMIX_SAI3_MCLK	0x96
+			MX8MP_IOMUXC_SAI3_TXD__AUDIOMIX_SAI3_TX_DATA00	0x96
+			MX8MP_IOMUXC_SAI3_RXD__AUDIOMIX_SAI3_RX_DATA00	0x1d6
 		>;
 	};
 
