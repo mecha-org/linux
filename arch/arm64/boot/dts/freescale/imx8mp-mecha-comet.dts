@@ -110,25 +110,62 @@
 	        };
 	};
 
-	iw612_pwrseq: iw612_pwrseq {
-		compatible = "mmc-pwrseq-simple";
-		post-power-on-delay-ms = <100>;
-		power-off-delay-us = <10000>;
-		reset-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>,       /* WIFI_RESET */
-			      <&gpio1 12 GPIO_ACTIVE_LOW>;      /* WIFI_PWR_EN */
-		status = "okay";
+	usb0_ss_mux: ptn36043 {
+		compatible = "nxp,ptn36043";
+		pinctrl-names = "default";
+		switch-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
+		orientation-switch;
+
+		port {
+			usb0_sw_ep: endpoint {
+				remote-endpoint = <&usb0_sw_ss>;
+			};
+		};
 	};
 
-	reg_wifi_en: regulator-wifi-en {
-		 compatible = "regulator-fixed";
-		 enable-active-high;
-		 gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>;
-		 pinctrl-names = "default";
-		 pinctrl-0 = <&pinctrl_wifi_pwr_en>;
-		 regulator-max-microvolt = <3300000>;
-		 regulator-min-microvolt = <3300000>;
-		 regulator-name = "PDn_AW-CM276NF";
-		 startup-delay-us = <2000>;
+	usb1_ss_mux: ptn36043_1 {
+		compatible = "nxp,ptn36043";
+		pinctrl-names = "default";
+		switch-gpios = <&gpio1 22 GPIO_ACTIVE_LOW>;
+		orientation-switch;
+
+		port {
+			usb1_sw_ep: endpoint {
+				remote-endpoint = <&usb1_sw_ss>;
+			};
+		};
+	};
+
+	Home-button {
+		compatible = "gpio-keys";
+
+		keypad-slide {
+			label = "Home-Button";
+			linux,code = <KEY_FN_1>;
+			gpios = <&gpio2 11 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	VOL-PLUS {
+		compatible = "gpio-keys";
+
+		keypad-slide {
+			label = "VOL+";
+			linux,input-type = <EV_KEY>;
+			linux,code = <103>;
+			gpios = <&gpio2 07 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	VOL-MINUS {
+		compatible = "gpio-keys";
+
+		keypad-slide {
+			label = "VOL-";
+			linux,input-type = <EV_KEY>;
+			linux,code = <108>;
+			gpios = <&gpio2 8 GPIO_ACTIVE_HIGH>;
+		};
 	};
 
 };
@@ -147,6 +184,41 @@
 
 &A53_3 {
         cpu-supply = <&buck2>;
+};
+
+&usb3_0 {
+	status = "okay";
+};
+
+&usb3_phy0 {
+	status = "okay";
+};
+
+&usb_dwc3_0 {
+	status = "okay";
+	dr_mode = "otg";
+	role-switch-default-mode = "none";
+	usb-role-switch;
+};
+
+&usb3_phy1 {
+	status = "okay";
+};
+
+&usb3_1 {
+	status = "okay";
+};
+
+&usb_dwc3_1 {
+	status = "okay";
+	dr_mode = "host";
+};
+
+&wdog1 {
+        pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_wdog>;
+	fsl,ext-reset-output;
+	status = "okay";
 };
 
 &i2c1 {
@@ -295,6 +367,65 @@
 		status = "okay";
 	};
 
+	tcpc_1: tusb320@60 {
+		compatible = "ti,tusb320";
+		reg = <0x60>;
+		pinctrl-0 = <&pinctrl_tusb>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <17 IRQ_TYPE_LEVEL_LOW>;
+		vbus-gpios = <&gpio4 18 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C-Port1";
+			data-role = "dual";
+			power-role = "dual";
+			typec-power-opmode = "default";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+                port@1 {
+					reg = <1>;
+					usb0_sw_ss: endpoint {
+						remote-endpoint = <&usb0_sw_ep>;
+					};
+				};
+			};
+		};
+	};
+
+	tcpc_2: tusb320@61 {
+		compatible = "ti,tusb320";
+		reg = <0x61>;
+		pinctrl-0 = <&pinctrl_tusb_1>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+		vbus-gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C-Port2";
+			data-role = "dual";
+			power-role = "dual";
+			typec-power-opmode = "default";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					usb1_sw_ss: endpoint {
+						remote-endpoint = <&usb1_sw_ep>;
+					};
+				};
+			};
+		};
+	};
+
 };
 
 &i2c4 {
@@ -363,6 +494,27 @@
 		#size-cells = <0>;
 	};
 
+	tps25751: typec@21 {
+		compatible = "ti,tps25750";
+		reg = <0x21>, <0x0f>;
+		reg-names = "main", "patch-address";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_typec>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "irq";
+		firmware-name = "tps25751.bin";
+		status = "okay";
+		
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			self-powered;
+			data-role = "dual";
+			power-role = "dual";
+		};
+	};
+
 };
 
 &i2c6 {
@@ -380,8 +532,32 @@
 	        interrupts = <28 IRQ_TYPE_LEVEL_LOW>;
 	        interrupt-controller;
 	        #interrupt-cells = <2>;
+		status = "okay";
+
+		nSleep {
+	                gpio-hog;
+	                gpios = <15 GPIO_ACTIVE_HIGH>;
+	                output-high;
+	                line-name = "haptic motor nSleep";
+		};
 	};
 
+};
+
+&gpio4 {
+	hub_en {
+		gpio-hog;
+		gpios = <19 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "HUB_EN";
+	};
+
+	hub_rst {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "HUB_RST";
+	};
 };
 
 &uart1 {
@@ -428,6 +604,28 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm4>;
 	status = "okay";
+};
+
+&usdhc1 {
+	assigned-clocks = <&clk IMX8MP_CLK_USDHC1>;
+	assigned-clock-rates = <400000000>;
+	bus-width = <4>;
+	keep-power-in-suspend;
+//	non-removable;
+	wakeup-source;
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc1>, <&pinctrl_wifi_ctrl>;
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>, <&pinctrl_wifi_ctrl>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_wifi_ctrl>;
+	status = "okay";
+	cd-gpios = <&gpio2 10 GPIO_ACTIVE_LOW>;
+	
+	wifi_wake_host {
+		compatible = "nxp,wifi-wake-host";
+		interrupt-parent = <&gpio3>;
+		interrupts = <6 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "host-wake";
+	};
 };
 
 &usdhc2 {
@@ -497,18 +695,6 @@
 	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
 	fsl,sai-mclk-direction-output;
-	status = "okay";
-};
-
-&usdhc1 {
-	bus-width = <4>;
-	keep-power-in-suspend;
-	non-removable;
-	pinctrl-names = "default", "state_100mhz", "state_200mhz";
-	pinctrl-0 = <&pinctrl_usdhc1>, <&pinctrl_wifi_ctrl>;
-	pinctrl-1 = <&pinctrl_usdhc1_100mhz>, <&pinctrl_wifi_ctrl>;
-	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_wifi_ctrl>;
-	vmmc-supply = <&reg_wifi_en>;
 	status = "okay";
 };
 
@@ -691,7 +877,7 @@
 			MX8MP_IOMUXC_SD2_DATA1__USDHC2_DATA1		0x1d0
 			MX8MP_IOMUXC_SD2_DATA2__USDHC2_DATA2		0x1d0
 			MX8MP_IOMUXC_SD2_DATA3__USDHC2_DATA3		0x1d0
-			MX8MP_IOMUXC_GPIO1_IO04__USDHC2_VSELECT		0x4
+		//	MX8MP_IOMUXC_GPIO1_IO04__USDHC2_VSELECT		0x4
 		>;
 	};
 
@@ -703,7 +889,7 @@
 			MX8MP_IOMUXC_SD2_DATA1__USDHC2_DATA1		0x1d4
 			MX8MP_IOMUXC_SD2_DATA2__USDHC2_DATA2		0x1d4
 			MX8MP_IOMUXC_SD2_DATA3__USDHC2_DATA3		0x1d4
-			MX8MP_IOMUXC_GPIO1_IO04__USDHC2_VSELECT		0x4
+		//	MX8MP_IOMUXC_GPIO1_IO04__USDHC2_VSELECT		0x4
 		>;
 	};
 
@@ -715,7 +901,7 @@
 			MX8MP_IOMUXC_SD2_DATA1__USDHC2_DATA1		0x1d6
 			MX8MP_IOMUXC_SD2_DATA2__USDHC2_DATA2		0x1d6
 			MX8MP_IOMUXC_SD2_DATA3__USDHC2_DATA3		0x1d6
-			MX8MP_IOMUXC_GPIO1_IO04__USDHC2_VSELECT		0x4
+		//	MX8MP_IOMUXC_GPIO1_IO04__USDHC2_VSELECT		0x4
 		>;
 	};
 
@@ -827,14 +1013,43 @@
 		>;
 	};
 
-	pinctrl_wifi_ctrl: wifictrlgrp {
-        fsl,pins =
-                <MX8MP_IOMUXC_GPIO1_IO12__GPIO1_IO12             0x1c4>; /* WIFI_WKUP_WLAN */
+	pinctrl_tusb: tusbgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_TXD5__GPIO4_IO17		0x1c4
+			MX8MP_IOMUXC_SAI1_TXD6__GPIO4_IO18		0x1c4
+		>;
 	};
 
-	pinctrl_wifi_pwr_en: wifipwrengrp {
-        fsl,pins =
-                <MX8MP_IOMUXC_SD1_STROBE__GPIO2_IO11            0x184>; /* PMIC_EN_WIFI */
+	pinctrl_tusb_1: tusbgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_GPIO1_IO07__GPIO1_IO07		0x184
+			MX8MP_IOMUXC_SAI1_TXD0__GPIO4_IO12		0x1c4
+		>;
+	};
+
+	pinctrl_typec: typec1grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_RXD1__GPIO4_IO03		0x1c4
+		>;
+	};
+
+	pinctrl_typec_0: typec2grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SD1_DATA4__GPIO2_IO06		0x1c4
+		>;
+	};
+
+	pinctrl_wifi_ctrl: wifictrlgrp {
+        fsl,pins = <
+			MX8MP_IOMUXC_NAND_DATA00__GPIO3_IO06		0x1c4
+			MX8MP_IOMUXC_SD1_RESET_B__GPIO2_IO10		0x1c4
+		>; /* WIFI_WKUP_WLAN */
+	};
+
+	pinctrl_wdog: wdoggrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_GPIO1_IO02__WDOG1_WDOG_B		0x166
+		>;
 	};
 
 };
