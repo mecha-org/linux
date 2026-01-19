@@ -711,11 +711,11 @@
 };
 
 &ml_vipsi {
-	status = "okay";
+	status = "disabled";
 };
 
 &mix_gpu_ml {
-	status = "okay";
+	status = "disabled";
 };
 
 &vpu_g1 {
