@@ -1,18 +1,51 @@
-Linux kernel
-============
+# Linux for Mecha Comet
 
-There are several guides for kernel developers and users. These guides can
-be rendered in a number of formats, like HTML and PDF. Please read
-Documentation/admin-guide/README.rst first.
+This guide helps you build the Linux kernel for **Mecha Comet** using cross-compilation for **ARM64**.
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.  The formatted documentation can also be read online at:
 
-    https://www.kernel.org/doc/html/latest/
+## 1. Set Up Cross-Compilation
 
-There are various text files in the Documentation/ subdirectory,
-several of them using the reStructuredText markup notation.
+Install the ARM64 toolchain and set up environment variables.
 
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+```bash
+sudo apt install gcc-aarch64-linux-gnu
+export ARCH=arm64
+export CROSS_COMPILE=/usr/bin/aarch64-linux-gnu-
+````
+
+* `gcc-aarch64-linux-gnu`: ARM64 toolchain.
+* `ARCH=arm64`: Target architecture.
+* `CROSS_COMPILE`: Path to the ARM64 tools.
+
+
+## 2. Build the Kernel
+
+Prepare the config and build the kernel.
+
+```bash
+cp arch/arm64/configs/mecha_v8_defconfig .config
+make menuconfig
+make
+```
+
+* `mecha_v8_defconfig`: Default config for Mecha Comet.
+* `make menuconfig`: Customize the kernel (optional).
+* `make`: Build the kernel.
+
+
+## 3. Create RPM Package
+
+Package the kernel into an RPM file.
+
+```bash
+make KBUILD_IMAGE=arch/arm64/boot/Image binrpm-pkg
+```
+
+* `KBUILD_IMAGE`: Specifies the kernel image.
+* `binrpm-pkg`: Builds the RPM package.
+
+
+### Notes
+
+* Ensure all dependencies are installed.
+* Run commands from the kernel source directory.
