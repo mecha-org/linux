@@ -110,6 +110,27 @@
 	        };
 	};
 
+	iw612_pwrseq: iw612_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		post-power-on-delay-ms = <100>;
+		power-off-delay-us = <10000>;
+		reset-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>,       /* WIFI_RESET */
+			      <&gpio1 12 GPIO_ACTIVE_LOW>;      /* WIFI_PWR_EN */
+		status = "okay";
+	};
+
+	reg_wifi_en: regulator-wifi-en {
+		 compatible = "regulator-fixed";
+		 enable-active-high;
+		 gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>;
+		 pinctrl-names = "default";
+		 pinctrl-0 = <&pinctrl_wifi_pwr_en>;
+		 regulator-max-microvolt = <3300000>;
+		 regulator-min-microvolt = <3300000>;
+		 regulator-name = "PDn_AW-CM276NF";
+		 startup-delay-us = <2000>;
+	};
+
 };
 
 &A53_0 {
@@ -479,6 +500,18 @@
 	status = "okay";
 };
 
+&usdhc1 {
+	bus-width = <4>;
+	keep-power-in-suspend;
+	non-removable;
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc1>, <&pinctrl_wifi_ctrl>;
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>, <&pinctrl_wifi_ctrl>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_wifi_ctrl>;
+	vmmc-supply = <&reg_wifi_en>;
+	status = "okay";
+};
+
 &sdma2 {
        status = "okay";
 };
@@ -792,6 +825,16 @@
 		fsl,pins = <
 			MX8MP_IOMUXC_SAI2_RXC__GPIO4_IO22		0x1c4
 		>;
+	};
+
+	pinctrl_wifi_ctrl: wifictrlgrp {
+        fsl,pins =
+                <MX8MP_IOMUXC_GPIO1_IO12__GPIO1_IO12             0x1c4>; /* WIFI_WKUP_WLAN */
+	};
+
+	pinctrl_wifi_pwr_en: wifipwrengrp {
+        fsl,pins =
+                <MX8MP_IOMUXC_SD1_STROBE__GPIO2_IO11            0x184>; /* PMIC_EN_WIFI */
 	};
 
 };
