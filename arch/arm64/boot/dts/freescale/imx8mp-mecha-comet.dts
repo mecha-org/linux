@@ -172,6 +172,20 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2>;
 	status = "okay";
+
+	touchctl: focaltech@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_touch_i2c>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
+		focaltech,reset-gpio = <&gpio4 4 GPIO_ACTIVE_HIGH>;
+		focaltech,irq-gpio = <&gpio4 5 GPIO_ACTIVE_LOW>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1079 1239>;
+		status = "okay";
+	};
 };
 
 &i2c3 {
@@ -276,6 +290,38 @@
 	status = "okay";
 };
 
+&lcdif1 {
+	status = "okay";
+};
+
+&mipi_dsi {
+	samsung,esc-clock-frequency = <16000000>;
+	status = "okay";
+
+	port {
+		dsi_out: endpoint {
+			remote-endpoint = <&panel_in>;
+		};
+	};
+
+	panel@0 {
+		compatible = "ch13726a,rp5";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_gpio>;
+		reset-gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;
+		orientation = <0>;
+		rotation = <270>;
+		dsi-lanes = <4>;
+		video-mode = <0>;
+		status = "okay";
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+};
 
 &gpu_2d {
 	status = "okay";
@@ -556,6 +602,19 @@
 			MX8MP_IOMUXC_NAND_CE3_B__USDHC3_DATA6		0x1d6
 			MX8MP_IOMUXC_NAND_CLE__USDHC3_DATA7		0x1d6
 			MX8MP_IOMUXC_NAND_CE1_B__USDHC3_STROBE		0x196
+		>;
+	};
+
+	pinctrl_mipi_gpio: mipigpiogrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_RXD7__GPIO4_IO09		0x184
+		>;
+	};
+
+	pinctrl_touch_i2c: touchgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_RXD2__GPIO4_IO04		0x184
+			MX8MP_IOMUXC_SAI1_RXD3__GPIO4_IO05		0x184
 		>;
 	};
 
