@@ -256,6 +256,24 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3>;
 	status = "okay";
+
+	imu: icm42605@69 {
+		compatible = "invensense,icm42605";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_imu_gpio>;
+		reg = <0x69>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	opt: opt3001@44 {
+		compatible = "ti,opt3001";
+		reg = <0x44>;
+		interrupt-parent = <&pca9535>;
+		interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+		status = "okay";
+	};
+
 };
 
 &i2c4 {
@@ -276,6 +294,39 @@
 	        clock-names = "mclk";
 	};
 
+	bq27441: fuel-gauge@55 {
+		compatible = "ti,bq27441";
+		reg = <0x55>;
+		status = "okay";
+		monitored-battery = <&bat>;
+		bat: battery {
+			compatible = "simple-battery";
+			over-voltage-threshold-microvolt = <4500000>;
+			re-charge-voltage-microvolt = <250000>;
+			voltage-min-design-microvolt = <3200000>;
+			voltage-max-design-microvolt = <4200000>;
+			energy-full-design-microwatt-hours = <5290000>;
+			charge-full-design-microamp-hours = <1430000>;
+			precharge-current-microamp = <256000>;
+			precharge-upper-limit-microvolt = <2500000>;
+			charge-term-current-microamp = <128000>;
+			constant-charge-current-max-microamp = <900000>;
+			constant-charge-voltage-max-microvolt = <4200000>;
+			factory-internal-resistance-micro-ohms = <250000>;
+			ocv-capacity-celsius = <(-10) 0 10>;
+			/* table for -10 degree Celsius */
+			ocv-capacity-table-0 = <4185000 100>, <4113000 95>, <4066000 90>;
+			/* table for 0 degree Celsius */
+			ocv-capacity-table-1 = <4200000 100>, <4185000 95>, <4113000 90>;
+			/* table for 10 degree Celsius */
+			ocv-capacity-table-2 = <4250000 100>, <4200000 95>, <4185000 90>;
+			resistance-temp-table = <20 100>, <10 90>, <0 80>, <(-10) 60>;
+			operating-range-celsius = <(-30) 50>;
+			ambient-celsius = <(-5) 50>;
+			alert-celsius = <0 40>;
+		};
+	};
+
 };
 
 &i2c5 {
@@ -283,6 +334,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c5>;
 	status = "okay";
+
+	ads1015@48 {
+		compatible = "ti,ads1115";
+		reg = <0x48>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
 };
 
 &i2c6 {
@@ -290,6 +349,18 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c6>;
 	status = "okay";
+
+	pca9535:gpio@20 {
+	        compatible = "nxp,pca9535";
+	        reg = <0x20>;
+	        gpio-controller;
+	        #gpio-cells = <2>;
+	        interrupt-parent = <&gpio4>;
+	        interrupts = <28 IRQ_TYPE_LEVEL_LOW>;
+	        interrupt-controller;
+	        #interrupt-cells = <2>;
+	};
+
 };
 
 &uart1 {
@@ -714,6 +785,12 @@
 			MX8MP_IOMUXC_SAI3_MCLK__AUDIOMIX_SAI3_MCLK	0x96
 			MX8MP_IOMUXC_SAI3_TXD__AUDIOMIX_SAI3_TX_DATA00	0x96
 			MX8MP_IOMUXC_SAI3_RXD__AUDIOMIX_SAI3_RX_DATA00	0x1d6
+		>;
+	};
+
+	pinctrl_imu_gpio: imugrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI2_RXC__GPIO4_IO22		0x1c4
 		>;
 	};
 
