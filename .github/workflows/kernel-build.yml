@@ -1,0 +1,72 @@
+name: Build Kernel RPM
+
+on:
+  push:
+    branches: [ "main", "imx/lf-6.12.20", "pre-release" ]
+  pull_request:
+    branches: [ "main", "imx/lf-6.12.20", "pre-release" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    
+    runs-on: ubuntu-24.04-arm
+    
+    container:
+      image: fedora:43
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            gcc \
+            make \
+            bison \
+            flex \
+            openssl-devel \
+            elfutils-libelf-devel \
+            bc \
+            rsync \
+            rpm-build \
+            git \
+            findutils \
+            hostname \
+            tar \
+            xz \
+            python3 \
+            perl \
+            openssl \
+            dwarves
+
+      - name: Clone mwifiex driver
+        run: |
+          mkdir -p drivers/staging
+          cd drivers/staging
+          if [ ! -d "mwifiex" ]; then
+            git clone https://github.com/nxp-imx/mwifiex
+          fi
+
+      - name: Configure Kernel
+        run: |
+          cp arch/arm64/configs/mecha_v8_defconfig .config
+          
+
+      - name: Build Kernel
+        run: |
+          make -j$(nproc)
+
+      - name: Packaging as RPM
+        run: |
+          # Packaging the build into an RPM package
+          make KBUILD_IMAGE=arch/arm64/boot/Image binrpm-pkg -j$(nproc)
+
+      - name: Upload RPM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-rpm
+          path: |
+            rpmbuild/RPMS/**/*.rpm
+            rpmbuild/SRPMS/**/*.rpm
