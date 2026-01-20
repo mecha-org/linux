@@ -22,6 +22,16 @@ export CROSS_COMPILE=/usr/bin/aarch64-linux-gnu-
 
 Prepare the config and build the kernel.
 
+add mwifiex (wifi module) driver
+
+```bash
+cd drivers/staging
+git clone https://github.com/nxp-imx/mwifiex
+cd ../..
+```
+
+build kernel
+
 ```bash
 cp arch/arm64/configs/mecha_v8_defconfig .config
 make menuconfig
