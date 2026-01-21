@@ -6,8 +6,8 @@
 /dts-v1/;
 
 //#include <dt-bindings/phy/phy-imx8-pcie.h>
-//#include <dt-bindings/pwm/pwm.h>
-//#include <dt-bindings/usb/pd.h>
+#include <dt-bindings/pwm/pwm.h>
+#include <dt-bindings/usb/pd.h>
 #include "imx8mp.dtsi"
 
 / {
@@ -110,6 +110,13 @@
 	        };
 	};
 
+	sound-hdmi {
+		compatible = "fsl,imx-audio-hdmi";
+		model = "audio-hdmi";
+		audio-cpu = <&aud2htx>;
+		hdmi-out;
+	};
+
 	usb0_ss_mux: ptn36043 {
 		compatible = "nxp,ptn36043";
 		pinctrl-names = "default";
@@ -168,6 +175,17 @@
 		};
 	};
 
+	Comet-Extension {
+		compatible = "gpio-keys";
+
+		keypad-slide {
+			label = "Comet Extension Keypad Slide";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_KEYPAD_SLIDE>;
+			gpios = <&gpio4 23 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
 };
 
 &A53_0 {
@@ -212,6 +230,30 @@
 &usb_dwc3_1 {
 	status = "okay";
 	dr_mode = "host";
+};
+
+&irqsteer_hdmi {
+        status = "okay";
+};
+
+&hdmi_blk_ctrl {
+        status = "okay";
+};
+
+&hdmi_pavi {
+        status = "okay";
+};
+
+&hdmi {
+        status = "okay";
+};
+
+&hdmiphy {
+        status = "okay";
+};
+
+&aud2htx {
+	status = "okay";
 };
 
 &wdog1 {
@@ -660,6 +702,17 @@
 	status = "okay";
 };
 
+&lcdif2 {
+        status = "disabled";
+};
+
+&lcdif3 {
+        status = "okay";
+
+        thres-low  = <1 2>;             /* (FIFO * 1 / 2) */
+        thres-high = <3 4>;             /* (FIFO * 3 / 4) */
+};
+
 &mipi_dsi {
 	samsung,esc-clock-frequency = <16000000>;
 	status = "okay";
@@ -1052,4 +1105,12 @@
 		>;
 	};
 
+	pinctrl_hog: hoggrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_HDMI_DDC_SCL__HDMIMIX_HDMI_SCL     0x400001c2
+			MX8MP_IOMUXC_HDMI_DDC_SDA__HDMIMIX_HDMI_SDA     0x400001c2
+			MX8MP_IOMUXC_HDMI_HPD__HDMIMIX_HDMI_HPD         0x40000010
+			MX8MP_IOMUXC_HDMI_CEC__HDMIMIX_HDMI_CEC         0x40000010
+		>;
+	};
 };
