@@ -180,8 +180,8 @@
 
 		keypad-slide {
 			label = "Comet Extension Keypad Slide";
-			linux,input-type = <EV_SW>;
-			linux,code = <SW_KEYPAD_SLIDE>;
+			linux,input-type = <EV_KEY>;
+			linux,code = <KEY_F24>;
 			gpios = <&gpio4 23 GPIO_ACTIVE_HIGH>;
 		};
 	};
