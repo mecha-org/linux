@@ -148,7 +148,8 @@
 
 		keypad-slide {
 			label = "Home-Button";
-			linux,code = <KEY_FN_1>;
+			linux,input-type = <EV_KEY>;
+			linux,code = <KEY_HOME>;
 			gpios = <&gpio2 11 GPIO_ACTIVE_HIGH>;
 		};
 	};
@@ -159,7 +160,7 @@
 		keypad-slide {
 			label = "VOL+";
 			linux,input-type = <EV_KEY>;
-			linux,code = <103>;
+			linux,code = <KEY_VOLUMEUP>;
 			gpios = <&gpio2 07 GPIO_ACTIVE_HIGH>;
 		};
 	};
@@ -170,7 +171,7 @@
 		keypad-slide {
 			label = "VOL-";
 			linux,input-type = <EV_KEY>;
-			linux,code = <108>;
+			linux,code = <KEY_VOLUMEDOWN>;
 			gpios = <&gpio2 8 GPIO_ACTIVE_HIGH>;
 		};
 	};
