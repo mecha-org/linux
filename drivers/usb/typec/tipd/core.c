@@ -1389,7 +1389,8 @@ static int tps6598x_probe(struct i2c_client *client)
 	tps->role_sw = fwnode_usb_role_switch_get(fwnode);
 	if (IS_ERR(tps->role_sw)) {
 		ret = PTR_ERR(tps->role_sw);
-		goto err_fwnode_put;
+		//goto err_fwnode_put;
+		return ret;
 	}
 
 	ret = devm_tps6598_psy_register(tps);
@@ -1443,8 +1444,8 @@ err_unregister_port:
 	typec_unregister_port(tps->port);
 err_role_put:
 	usb_role_switch_put(tps->role_sw);
-err_fwnode_put:
-	fwnode_handle_put(fwnode);
+//err_fwnode_put:
+//	fwnode_handle_put(fwnode);
 err_clear_mask:
 	tps6598x_write64(tps, TPS_REG_INT_MASK1, 0);
 err_reset_controller:

@@ -143,6 +143,19 @@
 		};
 	};
 
+	usb_pwr_mux: ptn36043_2 {
+		compatible = "nxp,ptn36043";
+		pinctrl-names = "default";
+		switch-gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
+		orientation-switch;
+
+		port {
+			usb_pwr_sw_ep: endpoint {
+				remote-endpoint = <&usb_pwr_sw_ss>;
+			};
+		};
+	};
+
 	Home-button {
 		compatible = "gpio-keys";
 
@@ -217,8 +230,12 @@
 &usb_dwc3_0 {
 	status = "okay";
 	dr_mode = "otg";
-	role-switch-default-mode = "none";
 	usb-role-switch;
+	port {
+		usb0_pwr_ep: endpoint {
+			remote-endpoint = <&usb_pwr_ep>;
+		};
+	};
 };
 
 &usb3_phy1 {
@@ -559,6 +576,24 @@
 			self-powered;
 			data-role = "dual";
 			power-role = "dual";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					usb_pwr_ep: endpoint {
+						remote-endpoint = <&usb0_pwr_ep>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					usb_pwr_sw_ss: endpoint {
+						remote-endpoint = <&usb_pwr_sw_ep>;
+					};
+				};
+			};
 		};
 	};
 
