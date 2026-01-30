@@ -79,8 +79,8 @@
 	                "IN1", "MICBIAS",
 	                "MIC1","IN1",
 	                "MIC2","IN1",
-	                "Speakers", "SPKL",
-	                "Speakers", "SPKR",
+	                //"Speakers", "SPKL",
+	                //"Speakers", "SPKR",
 
 	                /* DMIC-3 Routings */
 	                "DMICL", "DMIC Mux",
@@ -150,6 +150,7 @@
 			label = "Home-Button";
 			linux,input-type = <EV_KEY>;
 			linux,code = <KEY_HOME>;
+			wakeup-source;
 			gpios = <&gpio2 11 GPIO_ACTIVE_HIGH>;
 		};
 	};
@@ -375,6 +376,7 @@
 	touchctl: focaltech@38 {
 		compatible = "focaltech,fts";
 		reg = <0x38>;
+		wakeup-source;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_touch_i2c>;
 		interrupt-parent = <&gpio4>;
@@ -481,12 +483,14 @@
 	        #sound-dai-cells = <0>;
 	        pinctrl-names = "default";
 	        pinctrl-0 = <&pinctrl_sai3>;
+			pinctrl-1 = <&pinctrl_codec>;
 	        compatible = "maxim,max98091";
 	        reg = <0x10>;
 	        clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>;
-	        interrupt-parent = <&gpio1>;
-	        interrupts = <8 IRQ_TYPE_LEVEL_LOW>; /* SODIMM_218 */
+	        interrupt-parent = <&gpio4>;
+	        interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
 	        clock-names = "mclk";
+			status = "okay";
 	};
 
 	bq27441: fuel-gauge@55 {
@@ -794,6 +798,7 @@
 
 &iomuxc {
 	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog>;
 
 	pinctrl_i2c1: i2c1grp {
 		fsl,pins = <
@@ -1114,4 +1119,11 @@
 			MX8MP_IOMUXC_HDMI_CEC__HDMIMIX_HDMI_CEC         0x40000010
 		>;
 	};
+
+	pinctrl_codec: codecgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_TXD3__GPIO4_IO15 		0x1c4
+		>;
+	};
+
 };

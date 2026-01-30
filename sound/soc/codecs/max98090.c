@@ -1211,10 +1211,10 @@ static const struct snd_soc_dapm_widget max98090_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("HP Right Out", M98090_REG_OUTPUT_ENABLE,
 		M98090_HPREN_SHIFT, 0, NULL, 0),
 
-	SND_SOC_DAPM_PGA("SPK Left Out", M98090_REG_OUTPUT_ENABLE,
-		M98090_SPLEN_SHIFT, 0, NULL, 0),
-	SND_SOC_DAPM_PGA("SPK Right Out", M98090_REG_OUTPUT_ENABLE,
-		M98090_SPREN_SHIFT, 0, NULL, 0),
+	// SND_SOC_DAPM_PGA("SPK Left Out", M98090_REG_OUTPUT_ENABLE,
+	// 	M98090_SPLEN_SHIFT, 0, NULL, 0),
+	// SND_SOC_DAPM_PGA("SPK Right Out", M98090_REG_OUTPUT_ENABLE,
+	// 	M98090_SPREN_SHIFT, 0, NULL, 0),
 
 	SND_SOC_DAPM_PGA("RCV Left Out", M98090_REG_OUTPUT_ENABLE,
 		M98090_RCVLEN_SHIFT, 0, NULL, 0),
@@ -1223,8 +1223,8 @@ static const struct snd_soc_dapm_widget max98090_dapm_widgets[] = {
 
 	SND_SOC_DAPM_OUTPUT("HPL"),
 	SND_SOC_DAPM_OUTPUT("HPR"),
-	SND_SOC_DAPM_OUTPUT("SPKL"),
-	SND_SOC_DAPM_OUTPUT("SPKR"),
+	// SND_SOC_DAPM_OUTPUT("SPKL"),
+	// SND_SOC_DAPM_OUTPUT("SPKR"),
 	SND_SOC_DAPM_OUTPUT("RCVL"),
 	SND_SOC_DAPM_OUTPUT("RCVR"),
 };
@@ -2152,7 +2152,7 @@ static void max98090_jack_work(struct work_struct *work)
 	struct snd_soc_component *component = max98090->component;
 	int status = 0;
 	int reg;
-
+	unsigned int value = 0;
 	/* Read a second time */
 	if (max98090->jack_state == M98090_JACK_STATE_NO_HEADSET) {
 
@@ -2223,6 +2223,37 @@ static void max98090_jack_work(struct work_struct *work)
 			dev_dbg(component->dev, "Unrecognized Jack Status\n");
 			break;
 	}
+
+	/* Headphone & Headset Detection logic */
+
+	if (status & (SND_JACK_HEADSET | SND_JACK_HEADPHONE)) {
+		dev_dbg(component->dev,"TURN OFF SPEAKER O/P\n");
+
+		regmap_read(max98090->regmap,M98090_REG_OUTPUT_ENABLE, &value);
+
+		dev_info(component->dev,"OUTPUT Register Value : 0x%x\n",value);
+
+		value = (value &
+			~(M98090_SPLEN_MASK | M98090_SPREN_MASK)) |
+			(M98090_HPLEN_MASK | M98090_HPREN_MASK) ;
+
+		regmap_write(max98090->regmap,M98090_REG_OUTPUT_ENABLE,value);
+
+		dev_info(component->dev,"Speaker outputs disabled. New value: 0x%x\n", value);
+	}
+
+	if (status == 0) {
+		regmap_read(max98090->regmap,M98090_REG_OUTPUT_ENABLE, &value);
+
+		if ((value & (M98090_SPLEN_MASK | M98090_SPREN_MASK)) == 0) {
+			value |= (M98090_SPLEN_MASK | M98090_SPREN_MASK);
+
+			regmap_write(max98090->regmap,M98090_REG_OUTPUT_ENABLE,
+									value);
+			dev_info(component->dev,"Speakers enabled. OUTPUT_ENABLE = 0x%x\n", value);
+		}
+	}
+	/**************************************/
 
 	snd_soc_jack_report(max98090->jack, status,
 			    SND_JACK_HEADSET | SND_JACK_BTN_0);
