@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-//#include <dt-bindings/phy/phy-imx8-pcie.h>
+#include <dt-bindings/phy/phy-imx8-pcie.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/usb/pd.h>
 #include "imx8mp.dtsi"
@@ -782,6 +782,20 @@
 	};
 };
 
+&pcie_phy {
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	clocks = <&hsio_blk_ctrl>;
+	clock-names = "ref";
+	status = "okay";
+};
+
+&pcie {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcie0>;
+	reset-gpio = <&gpio1 24 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
 &sai3 {
 	#sound-dai-cells = <0>;
 	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;
@@ -1161,4 +1175,10 @@
 		>;
 	};
 
+	pinctrl_pcie0: pci0grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_ENET_RX_CTL__GPIO1_IO24		0x1c4
+			MX8MP_IOMUXC_UART4_RXD__PCIE_CLKREQ_B		0x1c4
+		>;
+	};
 };
