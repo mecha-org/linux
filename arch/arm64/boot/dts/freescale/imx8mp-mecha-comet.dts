@@ -163,7 +163,6 @@
 			label = "Home-Button";
 			linux,input-type = <EV_KEY>;
 			linux,code = <KEY_HOME>;
-			wakeup-source;
 			gpios = <&gpio2 11 GPIO_ACTIVE_HIGH>;
 		};
 	};
