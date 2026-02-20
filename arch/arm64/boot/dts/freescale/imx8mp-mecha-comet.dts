@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-//#include <dt-bindings/phy/phy-imx8-pcie.h>
+#include <dt-bindings/phy/phy-imx8-pcie.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/usb/pd.h>
 #include "imx8mp.dtsi"
@@ -79,8 +79,8 @@
 	                "IN1", "MICBIAS",
 	                "MIC1","IN1",
 	                "MIC2","IN1",
-	                "Speakers", "SPKL",
-	                "Speakers", "SPKR",
+	                //"Speakers", "SPKL",
+	                //"Speakers", "SPKR",
 
 	                /* DMIC-3 Routings */
 	                "DMICL", "DMIC Mux",
@@ -139,6 +139,19 @@
 		port {
 			usb1_sw_ep: endpoint {
 				remote-endpoint = <&usb1_sw_ss>;
+			};
+		};
+	};
+
+	usb_pwr_mux: ptn36043_2 {
+		compatible = "nxp,ptn36043";
+		pinctrl-names = "default";
+		switch-gpios = <&gpio4 1 GPIO_ACTIVE_LOW>;
+		orientation-switch;
+
+		port {
+			usb_pwr_sw_ep: endpoint {
+				remote-endpoint = <&usb_pwr_sw_ss>;
 			};
 		};
 	};
@@ -216,8 +229,12 @@
 &usb_dwc3_0 {
 	status = "okay";
 	dr_mode = "otg";
-	role-switch-default-mode = "none";
 	usb-role-switch;
+	port {
+		usb0_pwr_ep: endpoint {
+			remote-endpoint = <&usb_pwr_ep>;
+		};
+	};
 };
 
 &usb3_phy1 {
@@ -375,6 +392,7 @@
 	touchctl: focaltech@38 {
 		compatible = "focaltech,fts";
 		reg = <0x38>;
+		wakeup-source;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_touch_i2c>;
 		interrupt-parent = <&gpio4>;
@@ -481,12 +499,14 @@
 	        #sound-dai-cells = <0>;
 	        pinctrl-names = "default";
 	        pinctrl-0 = <&pinctrl_sai3>;
+			pinctrl-1 = <&pinctrl_codec>;
 	        compatible = "maxim,max98091";
 	        reg = <0x10>;
 	        clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>;
-	        interrupt-parent = <&gpio1>;
-	        interrupts = <8 IRQ_TYPE_LEVEL_LOW>; /* SODIMM_218 */
+	        interrupt-parent = <&gpio4>;
+	        interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
 	        clock-names = "mclk";
+			status = "okay";
 	};
 
 	bq27441: fuel-gauge@55 {
@@ -555,6 +575,24 @@
 			self-powered;
 			data-role = "dual";
 			power-role = "dual";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					usb_pwr_ep: endpoint {
+						remote-endpoint = <&usb0_pwr_ep>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					usb_pwr_sw_ss: endpoint {
+						remote-endpoint = <&usb_pwr_sw_ep>;
+					};
+				};
+			};
 		};
 	};
 
@@ -743,6 +781,20 @@
 	};
 };
 
+&pcie_phy {
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	clocks = <&hsio_blk_ctrl>;
+	clock-names = "ref";
+	status = "okay";
+};
+
+&pcie {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcie0>;
+	reset-gpio = <&gpio1 24 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
 &sai3 {
 	#sound-dai-cells = <0>;
 	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;
@@ -794,6 +846,7 @@
 
 &iomuxc {
 	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog>;
 
 	pinctrl_i2c1: i2c1grp {
 		fsl,pins = <
@@ -1112,6 +1165,19 @@
 			MX8MP_IOMUXC_HDMI_DDC_SDA__HDMIMIX_HDMI_SDA     0x400001c2
 			MX8MP_IOMUXC_HDMI_HPD__HDMIMIX_HDMI_HPD         0x40000010
 			MX8MP_IOMUXC_HDMI_CEC__HDMIMIX_HDMI_CEC         0x40000010
+		>;
+	};
+
+	pinctrl_codec: codecgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_TXD3__GPIO4_IO15 		0x1c4
+		>;
+	};
+
+	pinctrl_pcie0: pci0grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_ENET_RX_CTL__GPIO1_IO24		0x1c4
+			MX8MP_IOMUXC_UART4_RXD__PCIE_CLKREQ_B		0x1c4
 		>;
 	};
 };
