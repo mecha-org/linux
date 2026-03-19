@@ -28,6 +28,8 @@
  */
 #define REF_BIT(i)			BIT(32 - 1 - (i))
 
+#define HANTRO_H264_DEF_NUM_REF_PIC	2
+
 /* Data structure describing auxiliary buffer format. */
 struct hantro_h264_dec_priv_tbl {
 	u32 cabac_table[CABAC_INIT_BUFFER_SIZE];
@@ -518,4 +520,314 @@ int hantro_h264_dec_init(struct hantro_ctx *ctx)
 	memcpy(tbl->cabac_table, h264_cabac_table, sizeof(tbl->cabac_table));
 
 	return 0;
+}
+
+static unsigned int
+hantro_h264_enc_max_ref_frames(struct hantro_ctx *ctx)
+{
+	const struct v4l2_ctrl_h264_sps *sps;
+
+	sps = hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_SPS);
+	if (sps && sps->max_num_ref_frames)
+		return sps->max_num_ref_frames;
+
+	return HANTRO_H264_DEF_NUM_REF_PIC;
+}
+
+static struct hantro_h264_ref_buf *
+hantro_h264_enc_oldest_ref_buf(struct hantro_ctx *ctx)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_ref_buf *iter, *buf;
+	struct device *dev = ctx->dev->dev;
+	u64 timestamp = ULLONG_MAX;
+
+	list_for_each_entry(iter, &h264_ctx->ref_buf_list, entry) {
+		if (iter->timestamp < timestamp) {
+			buf = iter;
+			timestamp = iter->timestamp;
+		}
+	}
+
+	dev_dbg(dev, "Reference buffer list limit reached, dropping oldest ref-buf with timestamp %llu\n",
+		buf->timestamp);
+
+	return buf;
+}
+
+static struct hantro_h264_ref_buf *
+hantro_h264_enc_get_free_ref_buf(struct hantro_ctx *ctx)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_ref_buf *buf;
+
+	list_for_each_entry(buf, &h264_ctx->ref_buf_list, entry) {
+		if (buf->used)
+			continue;
+
+		return buf;
+	}
+
+	/* No free buffer found, take the oldest buffer */
+	return hantro_h264_enc_oldest_ref_buf(ctx);
+}
+
+struct hantro_h264_enc_buf *
+hantro_h264_enc_get_rec_buf(struct hantro_ctx *ctx, struct vb2_buffer *vb,
+			    bool is_ref_frame, bool is_idr_frame)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_ref_buf *buf;
+
+	/* Use temp buffer if not used as reference */
+	if (!is_ref_frame)
+		return &h264_ctx->rec_buf;
+
+	/*
+	 * Mark all reference buffers as unused since they are not allowed to be
+	 * reused after this IDR frame.
+	 */
+	if (is_idr_frame) {
+		list_for_each_entry(buf, &h264_ctx->ref_buf_list, entry)
+			buf->used = false;
+	}
+
+	buf = hantro_h264_enc_get_free_ref_buf(ctx);
+	buf->used = true;
+	buf->timestamp = vb->timestamp;
+
+	return &buf->buf;
+}
+
+struct hantro_h264_enc_buf *
+hantro_h264_enc_get_ref_buf(struct hantro_ctx *ctx, u64 reference_ts)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_ref_buf *buf;
+
+	list_for_each_entry(buf, &h264_ctx->ref_buf_list, entry) {
+		if (!buf->used || buf->timestamp != reference_ts)
+			continue;
+
+		return &buf->buf;
+	}
+
+	dev_err(ctx->dev->dev, "Failed to find reconstructed reference frame\n");
+
+	return NULL;
+}
+
+int hantro_h264_enc_prepare_run(struct hantro_ctx *ctx)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_enc_ctrls *ctrls = &h264_ctx->ctrls;
+
+	hantro_start_prepare_run(ctx);
+
+	ctrls->encode =
+		hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_ENCODE_PARAMS);
+	if (WARN_ON(!ctrls->encode))
+		return -EINVAL;
+
+	ctrls->rc =
+		hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_ENCODE_RC);
+	if (WARN_ON(!ctrls->rc))
+		return -EINVAL;
+
+	ctrls->sps =
+		hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_SPS);
+	if (WARN_ON(!ctrls->sps))
+		return -EINVAL;
+
+	ctrls->pps =
+		hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_PPS);
+	if (WARN_ON(!ctrls->pps))
+		return -EINVAL;
+
+	return 0;
+}
+
+static void
+hantro_h264_enc_free_buf(struct device *dev, struct hantro_h264_enc_buf *buf)
+{
+	if (buf->luma.cpu)
+		dma_free_coherent(dev, buf->luma.size, buf->luma.cpu,
+				  buf->luma.dma);
+	if (buf->luma_4n.cpu)
+		dma_free_coherent(dev, buf->luma_4n.size, buf->luma_4n.cpu,
+				  buf->luma_4n.dma);
+	if (buf->chroma.cpu)
+		dma_free_coherent(dev, buf->chroma.size, buf->chroma.cpu,
+				  buf->chroma.dma);
+	if (buf->ctb_rc.cpu)
+		dma_free_coherent(dev, buf->ctb_rc.size, buf->ctb_rc.cpu,
+				  buf->ctb_rc.dma);
+}
+
+static void
+hantro_h264_enc_free_nal_tbl(struct device *dev, struct hantro_aux_buf *buf)
+{
+	if (buf->cpu)
+		dma_free_coherent(dev, buf->size, buf->cpu, buf->dma);
+}
+
+void hantro_h264_enc_free_ref_buf(struct hantro_ctx *ctx, struct vb2_buffer *vb)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_ref_buf *ref_buf;
+	struct device *dev = ctx->dev->dev;
+	bool found = false;
+
+	list_for_each_entry(ref_buf, &h264_ctx->ref_buf_list, entry) {
+		if (ref_buf->timestamp != vb->timestamp)
+			continue;
+
+		found = true;
+		break;
+	}
+
+	/* Nothing to do, the buffer was not used as reference */
+	if (!found)
+		return;
+
+	ref_buf->used = false;
+
+	if (list_count_nodes(&h264_ctx->ref_buf_list) <=
+	    hantro_h264_enc_max_ref_frames(ctx))
+		return;
+
+	list_del(&ref_buf->entry);
+	hantro_h264_enc_free_buf(dev, &ref_buf->buf);
+	kfree(ref_buf);
+}
+
+void hantro_h264_enc_exit(struct hantro_ctx *ctx)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_ref_buf *ref_buf;
+	struct device *dev = ctx->dev->dev;
+
+	list_for_each_entry(ref_buf, &h264_ctx->ref_buf_list, entry) {
+		hantro_h264_enc_free_buf(dev, &ref_buf->buf);
+		kfree(ref_buf);
+	}
+	hantro_h264_enc_free_buf(dev, &h264_ctx->rec_buf);
+	hantro_h264_enc_free_nal_tbl(dev, &h264_ctx->nal_tbl);
+}
+
+static int
+hantro_h264_enc_alloc_buf(struct hantro_ctx *ctx, struct hantro_h264_enc_buf *buf)
+{
+	struct device *dev = ctx->dev->dev;
+	unsigned int rec_chroma_sz;
+	unsigned int rec_luma_sz;
+	unsigned int ctb_rc_sz;
+
+	/* Reconstructed image is YUV 4:2:0 with 1.5 bpp. */
+	rec_luma_sz = ctx->src_fmt.width * ctx->src_fmt.height;
+	rec_chroma_sz = rec_luma_sz / 2;
+
+	buf->luma.size = rec_luma_sz;
+	buf->luma.cpu = dma_alloc_coherent(dev, rec_luma_sz,
+					   &buf->luma.dma, GFP_KERNEL);
+	if (!buf->luma.cpu)
+		return -ENOMEM;
+
+	buf->chroma.size = rec_chroma_sz;
+	buf->chroma.cpu = dma_alloc_coherent(dev, rec_luma_sz,
+					     &buf->chroma.dma, GFP_KERNEL);
+	if (!buf->chroma.cpu)
+		return -ENOMEM;
+
+	buf->luma_4n.size = rec_luma_sz * 4;
+	buf->luma_4n.cpu = dma_alloc_coherent(dev, rec_luma_sz,
+					      &buf->luma_4n.dma, GFP_KERNEL);
+	if (!buf->luma_4n.cpu)
+		return -ENOMEM;
+
+	/* TODO: unkown size -> picture size seems to fit */
+	ctb_rc_sz = ctx->src_fmt.width * ctx->src_fmt.height;
+	buf->ctb_rc.size = ctb_rc_sz;
+	buf->ctb_rc.cpu = dma_alloc_coherent(dev, ctb_rc_sz,
+					     &buf->ctb_rc.dma, GFP_KERNEL);
+	if (!buf->ctb_rc.cpu)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static struct hantro_h264_ref_buf *
+hantro_h264_enc_alloc_ref_buf(struct hantro_ctx *ctx)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_ref_buf *buf;
+	int ret;
+
+	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
+	if (!buf)
+		return ERR_PTR(-ENOMEM);
+
+	list_add(&buf->entry, &h264_ctx->ref_buf_list);
+
+	ret = hantro_h264_enc_alloc_buf(ctx, &buf->buf);
+
+	return ret ? ERR_PTR(ret) : buf;
+}
+
+static int hantro_h264_enc_alloc_nal_tbl(struct hantro_ctx *ctx)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_aux_buf *nal_tbl = &h264_ctx->nal_tbl;
+	struct device *dev = ctx->dev->dev;
+
+	nal_tbl->size = ALIGN(ctx->src_fmt.height / 16, 8);
+	nal_tbl->cpu = dma_alloc_coherent(dev, nal_tbl->size,
+					  &nal_tbl->dma, GFP_KERNEL);
+
+	if (!nal_tbl->cpu)
+		return -ENOMEM;
+
+	return 0;
+}
+
+int hantro_h264_enc_init(struct hantro_ctx *ctx)
+{
+	struct hantro_h264_enc_hw_ctx *h264_ctx = &ctx->h264_enc;
+	struct hantro_h264_ref_buf *ref_buf;
+	struct device *dev = ctx->dev->dev;
+	unsigned int ref_frames_num;
+	unsigned int i;
+	int ret;
+
+	INIT_LIST_HEAD(&h264_ctx->ref_buf_list);
+
+	ref_frames_num = hantro_h264_enc_max_ref_frames(ctx);
+
+	for (i = 0; i < ref_frames_num; i++) {
+		ref_buf = hantro_h264_enc_alloc_ref_buf(ctx);
+		if (IS_ERR(ref_buf)) {
+			ret = PTR_ERR(ref_buf);
+			goto out_err;
+		}
+	}
+
+	ret = hantro_h264_enc_alloc_buf(ctx, &h264_ctx->rec_buf);
+	if (ret)
+		goto out_err;
+
+	ret = hantro_h264_enc_alloc_nal_tbl(ctx);
+	if (ret)
+		goto out_err;
+
+	return 0;
+
+out_err:
+	list_for_each_entry(ref_buf, &h264_ctx->ref_buf_list, entry) {
+		hantro_h264_enc_free_buf(dev, &ref_buf->buf);
+		kfree(ref_buf);
+	}
+	hantro_h264_enc_free_buf(dev, &h264_ctx->rec_buf);
+	hantro_h264_enc_free_nal_tbl(dev, &h264_ctx->nal_tbl);
+
+	return ret;
 }
