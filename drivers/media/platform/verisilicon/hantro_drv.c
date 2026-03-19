@@ -442,6 +442,31 @@ static const struct hantro_ctrl controls[] = {
 			 */
 			.flags = V4L2_CTRL_FLAG_READ_ONLY,
 		},
+			}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_ENCODE_PARAMS,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+		.id = V4L2_CID_STATELESS_H264_ENCODE_RC,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_ENCODE_FEEDBACK,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_SPS,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_PPS,
+		},
 	}, {
 		.codec = HANTRO_MPEG2_DECODER,
 		.cfg = {
@@ -728,6 +753,7 @@ static const struct of_device_id of_hantro_match[] = {
 #endif
 #ifdef CONFIG_VIDEO_HANTRO_IMX8M
 	{ .compatible = "nxp,imx8mm-vpu-g1", .data = &imx8mm_vpu_g1_variant, },
+	{ .compatible = "nxp,imx8mp-vpu-vc8000e", .data = &imx8mp_vpu_vc8000e_variant, },
 	{ .compatible = "nxp,imx8mq-vpu", .data = &imx8mq_vpu_variant, },
 	{ .compatible = "nxp,imx8mq-vpu-g1", .data = &imx8mq_vpu_g1_variant },
 	{ .compatible = "nxp,imx8mq-vpu-g2", .data = &imx8mq_vpu_g2_variant },
