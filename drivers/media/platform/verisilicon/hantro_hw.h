@@ -69,6 +69,65 @@ struct hantro_aux_buf {
 	unsigned long attrs;
 };
 
+/**
+ * struct hantro_h264_enc_ctrls
+ *
+ * @encode:	Encode params
+ * @rc:		Rate control params
+ * @feedback:	Encode feedback
+ */
+struct hantro_h264_enc_ctrls {
+	const struct v4l2_ctrl_h264_encode_params *encode;
+	const struct v4l2_ctrl_h264_encode_rc *rc;
+	const struct v4l2_ctrl_h264_sps *sps;
+	const struct v4l2_ctrl_h264_pps *pps;
+};
+
+/**
+ * struct hantro_h264_enc_buf
+ *
+ * @luma:	YUV420 - reconstuction luma buffer
+ * @chroma:	YUV420 - reconstuction chroma buffer
+ * @luma_4n:	2nd Internal luma reconstruction buffer
+ * @ctb_rc:	Collocated CTB rate control memory
+ */
+struct hantro_h264_enc_buf {
+	struct hantro_aux_buf luma;
+	struct hantro_aux_buf chroma;
+	struct hantro_aux_buf luma_4n;
+	struct hantro_aux_buf ctb_rc;
+};
+
+/**
+ * struct hantro_h264_ref_buf
+ *
+ * @buf:	Reference frame buffer
+ * @timestamp:	The timestamp this reference buffer was created
+ * @used:	Flag to indicate that this buffer is used as reference frame
+ * @entry:	List element
+ */
+struct hantro_h264_ref_buf {
+	struct hantro_h264_enc_buf buf;
+	u64 timestamp;
+	bool used;
+	struct list_head entry;
+};
+
+/**
+ * struct hantro_h264_enc_hw_ctx
+ *
+ * @ref_buf_list:	Reference buffer list
+ * @rec_buf:		Intermediate reconstruction buffer
+ * @ctrls:		V4L2 controls attached to a run
+ */
+struct hantro_h264_enc_hw_ctx {
+	struct list_head ref_buf_list;
+	struct hantro_h264_enc_buf rec_buf;
+	struct hantro_aux_buf nal_tbl;
+	struct hantro_h264_enc_ctrls ctrls;
+};
+
+
 /* Max. number of entries in the DPB (HW limitation). */
 #define HANTRO_H264_DPB_SIZE		16
 
@@ -402,6 +461,7 @@ enum hantro_enc_fmt {
 	ROCKCHIP_VPU_ENC_FMT_UYVY422 = 3,
 };
 
+extern const struct hantro_variant imx8mp_vpu_vc8000e_variant;
 extern const struct hantro_variant imx8mm_vpu_g1_variant;
 extern const struct hantro_variant imx8mq_vpu_g1_variant;
 extern const struct hantro_variant imx8mq_vpu_g2_variant;
@@ -440,6 +500,17 @@ int hantro_h1_jpeg_enc_run(struct hantro_ctx *ctx);
 int rockchip_vpu2_jpeg_enc_run(struct hantro_ctx *ctx);
 void hantro_h1_jpeg_enc_done(struct hantro_ctx *ctx);
 void rockchip_vpu2_jpeg_enc_done(struct hantro_ctx *ctx);
+void hantro_vc8000e_h264_enc_done(struct hantro_ctx *ctx);
+int hantro_vc8000e_h264_enc_run(struct hantro_ctx *ctx);
+int hantro_h264_enc_prepare_run(struct hantro_ctx *ctx);
+int hantro_h264_enc_init(struct hantro_ctx *ctx);
+void hantro_h264_enc_exit(struct hantro_ctx *ctx);
+struct hantro_h264_enc_buf *
+hantro_h264_enc_get_ref_buf(struct hantro_ctx *ctx, u64 reference_ts);
+struct hantro_h264_enc_buf *
+hantro_h264_enc_get_rec_buf(struct hantro_ctx *ctx, struct vb2_buffer *vb,
+			    bool is_ref_frame, bool is_idr_frame);
+void hantro_h264_enc_free_ref_buf(struct hantro_ctx *ctx, struct vb2_buffer *vb);
 
 dma_addr_t hantro_h264_get_ref_buf(struct hantro_ctx *ctx,
 				   unsigned int dpb_idx);
