@@ -12,8 +12,6 @@
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
 
-#include <drm/display/drm_dsc.h>
-#include <drm/display/drm_dsc_helper.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_panel.h>
@@ -23,7 +21,6 @@
 struct ch13726a_panel {
 	struct drm_panel panel;
 	struct mipi_dsi_device *dsi;
-	struct drm_dsc_config dsc;
 	struct regulator_bulk_data supplies[4];
 	struct gpio_desc *reset_gpio;
 	const struct drm_display_mode *display_mode;
@@ -39,65 +36,46 @@ static inline struct ch13726a_panel *to_ch13726a_panel(struct drm_panel *panel)
 static void ch13726a_reset(struct ch13726a_panel *ctx)
 {
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-	usleep_range(20000, 21000);
+	usleep_range(10000, 11000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
-	usleep_range(20000, 21000);
+	usleep_range(10000, 11000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-	usleep_range(20000, 21000);
+	usleep_range(10000, 11000);
 }
 
 static int ch13726a_on(struct ch13726a_panel *ctx)
 {
-	struct mipi_dsi_device *dsi = ctx->dsi;
 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 
-	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+	ctx->dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 
-	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DCS_WRITE_CONTROL_DISPLAY, MIPI_DCS_NOP);
-	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DSI_V_SYNC_END, MIPI_DCS_NOP);
-	mipi_dsi_msleep(&dsi_ctx, 120);
-	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DSI_GENERIC_LONG_WRITE, MIPI_DCS_NOP);
-
+	mipi_dsi_generic_write_seq_multi(&dsi_ctx, MIPI_DCS_WRITE_CONTROL_DISPLAY, MIPI_DCS_NOP);
+	mipi_dsi_generic_write_seq_multi(&dsi_ctx, MIPI_DSI_V_SYNC_END, MIPI_DCS_NOP);
+	
 	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
-	
-	mipi_dsi_msleep(&dsi_ctx, 128);
-	
-	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
-	mipi_dsi_msleep(&dsi_ctx, 20);
 
-	return 0;
+	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
+
+	return dsi_ctx.accum_err;
 }
 
 static int ch13726a_disable(struct drm_panel *panel)
 {
 	struct ch13726a_panel *ctx = to_ch13726a_panel(panel);
-	struct mipi_dsi_device *dsi = ctx->dsi;
-	struct device *dev = &dsi->dev;
-	int ret;
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 
-	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+	ctx->dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
 
-	ret = mipi_dsi_dcs_set_display_off(dsi);
-	if (ret < 0) {
-		dev_err(dev, "Failed to set display off: %d\n", ret);
-		return ret;
-	}
+	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
+	mipi_dsi_msleep(&dsi_ctx, 50);
+	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
 
-	ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
-	if (ret < 0) {
-		dev_err(dev, "Failed to enter sleep mode: %d\n", ret);
-		return ret;
-	}
-
-	msleep(100);
-
-	return 0;
+	return dsi_ctx.accum_err;
 }
 
-static int ch13726a_enable(struct drm_panel *panel)
+static int ch13726a_prepare(struct drm_panel *panel)
 {
 	struct ch13726a_panel *ctx = to_ch13726a_panel(panel);
-
 	struct device *dev = &ctx->dsi->dev;
 	int ret;
 
@@ -106,27 +84,26 @@ static int ch13726a_enable(struct drm_panel *panel)
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 	if (ret < 0) {
-        	dev_err(dev, "Failed to enable regulators: %d\n", ret);
-        	return ret;
+		dev_err(dev, "Failed to enable regulators: %d\n", ret);
+		return ret;
 	}
 
 	ch13726a_reset(ctx);
 
 	ret = ch13726a_on(ctx);
 	if (ret < 0) {
-        	dev_err(dev, "Failed to initialize panel: %d\n", ret);
+		dev_err(dev, "Failed to initialize panel: %d\n", ret);
 		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 		regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 		return ret;
 	}
 
-	msleep(20);
+	msleep(28);
 
 	ctx->prepared = true;
-	return ret;
 
+	return 0;
 }
-
 
 static int ch13726a_unprepare(struct drm_panel *panel)
 {
@@ -199,8 +176,8 @@ static enum drm_panel_orientation ch13726a_get_orientation(struct drm_panel *pan
 }
 
 static const struct drm_panel_funcs ch13726a_panel_funcs = {
+	.prepare = ch13726a_prepare,
 	.unprepare = ch13726a_unprepare,
-	.enable = ch13726a_enable,
 	.disable = ch13726a_disable,
 	.get_modes = ch13726a_get_modes,
 	.get_orientation = ch13726a_get_orientation,
@@ -243,16 +220,13 @@ ch13726a_create_backlight(struct mipi_dsi_device *dsi)
 
 static int ch13726a_probe(struct mipi_dsi_device *dsi)
 {
-	printk(KERN_INFO "DEBUG CH13726A : ch13726a_probe success...");
 	struct device *dev = &dsi->dev;
 	struct ch13726a_panel *ctx;
-	int rotation;
 	int ret;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
-	printk(KERN_INFO " CH13726A : devm_kzalloc success...");
 
 	ctx->display_mode = of_device_get_match_data(dev);
 
@@ -265,27 +239,17 @@ static int ch13726a_probe(struct mipi_dsi_device *dsi)
 				      ctx->supplies);
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to get regulators\n");
-	printk(KERN_INFO " CH13726A : devm_regulator_bulk_get success...");
 
 	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(ctx->reset_gpio))
 		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
 				     "Failed to get reset-gpios\n");
-	printk(KERN_INFO " CH13726A : devm_gpiod_get  success...");
 
-	ret = of_property_read_u32(dev->of_node, "rotation", &rotation);
-	if (ret == -EINVAL) {
-		ctx->orientation = DRM_MODE_PANEL_ORIENTATION_UNKNOWN;
+	ret = of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
+	if (ret < 0) {
+		dev_err(dev, "%pOF: failed to get orientation %d\n", dev->of_node, ret);
+		return ret;
 	}
-
-	if (rotation == 0)
-		ctx->orientation = DRM_MODE_PANEL_ORIENTATION_NORMAL;
-	else if (rotation == 90)
-		ctx->orientation = DRM_MODE_PANEL_ORIENTATION_RIGHT_UP;
-	else if (rotation == 180)
-		ctx->orientation = DRM_MODE_PANEL_ORIENTATION_BOTTOM_UP;
-	else if (rotation == 270)
-		ctx->orientation = DRM_MODE_PANEL_ORIENTATION_LEFT_UP;
 
 	ctx->dsi = dsi;
 	mipi_dsi_set_drvdata(dsi, ctx);
@@ -312,7 +276,6 @@ static int ch13726a_probe(struct mipi_dsi_device *dsi)
 		drm_panel_remove(&ctx->panel);
 		return ret;
 	}
-	printk(KERN_INFO " CH13726A : mipi_dsi_attach  success...");
 
 	return 0;
 }

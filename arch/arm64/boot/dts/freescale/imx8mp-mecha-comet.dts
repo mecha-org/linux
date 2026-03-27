@@ -847,10 +847,10 @@
 		reg = <0>;
 		pinctrl-0 = <&pinctrl_mipi_gpio>;
 		reset-gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;
-		orientation = <0>;
-		rotation = <270>;
-		dsi-lanes = <4>;
-		video-mode = <0>;
+		//orientation = <0>;
+		//rotation = <270>;
+		//dsi-lanes = <4>;
+		//video-mode = <0>;
 		status = "okay";
 
 		port {
