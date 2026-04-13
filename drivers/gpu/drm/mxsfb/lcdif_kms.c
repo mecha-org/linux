@@ -674,6 +674,18 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 	crtc_state = drm_atomic_get_new_crtc_state(state,
 						   &lcdif->crtc);
 
+	/*
+	 * While byte granularity is supported, LCDIF requires
+	 * that framebuffer pitch be aligned to 64 bytes.
+	 */
+	if (plane_state->fb &&
+	    !IS_ALIGNED(plane_state->fb->pitches[0], 64)) {
+		DRM_DEV_DEBUG_DRIVER(plane->dev->dev,
+							"Framebuffer pitch (%u bytes) must be aligned to 64 bytes\n",
+							plane_state->fb->pitches[0]);
+		return -EINVAL;
+	}
+
 	return drm_atomic_helper_check_plane_state(plane_state, crtc_state,
 						   DRM_PLANE_NO_SCALING,
 						   DRM_PLANE_NO_SCALING,
