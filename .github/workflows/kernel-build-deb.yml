@@ -1,0 +1,92 @@
+name: Build and Release Kernel (DEB)
+
+on:
+  push:
+    branches: ["main", "imx/lf-6.12.20", "pre-release*", "mecha-v7.0-wip"]
+  pull_request:
+    branches: ["main", "imx/lf-6.12.20", "pre-release*", "mecha-v7.0-wip"]
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-24.04-arm
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            bc \
+            bison \
+            flex \
+            libssl-dev \
+            libelf-dev \
+            libdw-dev \
+            kmod \
+            cpio \
+            rsync \
+            fakeroot \
+            gh \
+            debhelper
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+      - name: Configure Kernel
+        run: |
+          cp arch/arm64/configs/mecha_v8_defconfig .config
+
+      - name: Build Kernel
+        run: |
+          make -j$(nproc)
+
+      - name: Packaging as DEB
+        run: |
+          # Packaging the build into a Debian package
+          # Ensure uncompressed kernel image is used
+          # Use -d to skip build dependency checks if needed, but we installed them.
+          # KDEB_CHANGELOG_DIST ensures a valid distribution in changelog.
+          make KBUILD_IMAGE=arch/arm64/boot/Image KDEB_CHANGELOG_DIST=unstable bindeb-pkg -j$(nproc)
+
+      - name: Consolidate Artifacts
+        if: always()
+        run: |
+          mkdir -p dist
+          # Debian packages are generated in the parent directory
+          mv ../*.deb dist/ || true
+          mv ../*.changes dist/ || true
+          mv ../*.buildinfo dist/ || true
+
+      - name: Upload DEB Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-packages-deb
+          path: ./dist/*
+
+      - name: Create/Update Rolling Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Ensure the release exists first
+          gh release create kernel-deb-latest \
+            --title "Latest Kernel DEB Build" \
+            --notes "Automated rolling release for latest kernel DEB builds." \
+            --prerelease \
+            || true
+
+          # Update the tag to handle rolling release
+          git tag -f kernel-deb-latest
+          git push -f origin kernel-deb-latest
+
+          # Upload assets to the existing release
+          gh release upload kernel-deb-latest ./dist/* --clobber
