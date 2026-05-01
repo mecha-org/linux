@@ -155,6 +155,14 @@
 		};
 	};
 
+	haptic {
+		compatible = "pwm-vibrator";
+		pwms = <&pwm1 0 1000000 0>;
+		pwm-names = "enable";
+		enable-gpios = <&pca9535 15 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+    };
+
 	Home-button {
 		compatible = "gpio-keys";
 
@@ -680,29 +688,28 @@
 
 &i2c6 {
 	clock-frequency = <400000>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c6>;
-	status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&pinctrl_i2c6>;
+    status = "okay";
 
-	pca9535:gpio@20 {
-	        compatible = "nxp,pca9535";
-	        reg = <0x20>;
-	        gpio-controller;
-	        #gpio-cells = <2>;
-	        interrupt-parent = <&gpio4>;
-	        interrupts = <28 IRQ_TYPE_LEVEL_LOW>;
-	        interrupt-controller;
-	        #interrupt-cells = <2>;
+    pca9535:gpio@20 {
+		compatible = "nxp,pca9535";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <28 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 		status = "okay";
 
 		nSleep {
-	                gpio-hog;
-	                gpios = <15 GPIO_ACTIVE_HIGH>;
-	                output-high;
-	                line-name = "haptic motor nSleep";
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "haptic motor nSleep";
 		};
-	};
-
+    };
 };
 
 &gpio4 {
