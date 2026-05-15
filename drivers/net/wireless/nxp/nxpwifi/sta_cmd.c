@@ -3309,14 +3309,8 @@ int nxpwifi_sta_init_cmd(struct nxpwifi_private *priv, u8 first_sta, bool init)
 			return ret;
 
 		if (priv->bss_type != NXPWIFI_BSS_TYPE_UAP) {
-			/* Enable IEEE PS by default */
-			priv->adapter->ps_mode = NXPWIFI_802_11_POWER_MODE_PSP;
-			ret = nxpwifi_send_cmd(priv,
-					       HOST_CMD_802_11_PS_MODE_ENH,
-					       EN_AUTO_PS, BITMAP_STA_PS, NULL,
-					       true);
-			if (ret)
-				return ret;
+			/* IEEE PS disabled - keep firmware in CAM mode */
+			priv->adapter->ps_mode = NXPWIFI_802_11_POWER_MODE_CAM;
 		}
 
 		nxpwifi_send_cmd(priv, HOST_CMD_CHAN_REGION_CFG,
