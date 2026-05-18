@@ -15,7 +15,7 @@ jobs:
       contents: write
 
     container:
-      image: fedora:43
+      image: fedora:44
 
     steps:
       - name: Checkout code
