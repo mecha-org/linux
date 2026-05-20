@@ -129,10 +129,9 @@
 		hdmi-out;
 	};
 
-	usb0_ss_mux: ptn36043 {
-		compatible = "nxp,ptn36043";
-		pinctrl-names = "default";
-		switch-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
+	usb0_ss_mux: gpio-sbu-mux {
+		compatible = "ti,tmuxhs4212", "gpio-sbu-mux";
+		select-gpios = <&gpio4 14 GPIO_ACTIVE_LOW>;
 		orientation-switch;
 
 		port {
@@ -142,10 +141,9 @@
 		};
 	};
 
-	usb1_ss_mux: ptn36043_1 {
-		compatible = "nxp,ptn36043";
-		pinctrl-names = "default";
-		switch-gpios = <&gpio1 22 GPIO_ACTIVE_LOW>;
+	usb1_ss_mux: gpio-sbu-mux {
+		compatible = "ti,tmuxhs4212", "gpio-sbu-mux";
+		select-gpios = <&gpio1 22 GPIO_ACTIVE_LOW>;
 		orientation-switch;
 
 		port {
@@ -1013,7 +1011,7 @@
 
 	pinctrl_typec: typec1grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_SD1_DATA5__GPIO2_IO07		0x1c4
+			MX8MP_IOMUXC_SAI1_RXD1__GPIO4_IO03		0x1c4
 		>;
 	};
 
