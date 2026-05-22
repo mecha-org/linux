@@ -83,6 +83,7 @@ struct tusb320_priv {
 	enum typec_pwr_opmode pwr_opmode;
 	struct fwnode_handle *connector_fwnode;
 	struct usb_role_switch *role_sw;
+	struct gpio_desc *vbus_gpiod;
 };
 
 static const char * const tusb_attached_states[] = {
@@ -259,6 +260,17 @@ static void tusb320_extcon_irq_handler(struct tusb320_priv *priv, u8 reg)
 
 	dev_dbg(priv->dev, "attached state: %s, polarity: %d\n",
 		tusb_attached_states[state], polarity);
+
+	/* Mecha Specific Change for Load SW */
+	if (state == 1) {
+		pr_info("TUSB LOAD SW GPIO set to HIGH\n");
+	gpiod_set_value_cansleep(priv->vbus_gpiod, 1);
+	}
+	else {
+		pr_info("TUSB LOAD SW GPIO set to LOW\n");
+	gpiod_set_value_cansleep(priv->vbus_gpiod, 0);
+	}
+	/***********************************/
 
 	extcon_set_state(priv->edev, EXTCON_USB,
 			 state == TUSB320_ATTACHED_STATE_UFP);
@@ -527,6 +539,14 @@ static int tusb320_probe(struct i2c_client *client)
 	priv->regmap = devm_regmap_init_i2c(client, &tusb320_regmap_config);
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
+
+	/* Mecha Specific Change for Load SW */
+
+	priv->vbus_gpiod = devm_gpiod_get(&client->dev,"vbus",GPIOD_OUT_LOW);
+	if (IS_ERR(priv->vbus_gpiod))
+		return PTR_ERR(priv->vbus_gpiod);
+
+	/***********************************/
 
 	ret = tusb320_check_signature(priv);
 	if (ret)
