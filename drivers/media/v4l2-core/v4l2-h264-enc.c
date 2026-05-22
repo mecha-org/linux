@@ -10,6 +10,7 @@
 #include <media/v4l2-h264.h>
 #include <media/v4l2-h264-enc.h>
 #include <media/v4l2-h264-enc-rbsp.h>
+#include <media/v4l2-h264-enc-rc.h>
 #include <media/videobuf2-v4l2.h>
 
 static int rec_buffer_alloc(struct v4l2_h264_enc *enc,
@@ -94,6 +95,7 @@ static void rec_buffers_free(struct v4l2_h264_enc *enc)
 
 int v4l2_h264_enc_init(struct v4l2_h264_enc *enc)
 {
+	struct v4l2_h264_enc_rc *rc = &enc->rc;
 	struct v4l2_h264_enc_rbsp *rbsp = &enc->rbsp;
 	unsigned int slots_count = 0;
 	int ret;
@@ -123,15 +125,30 @@ int v4l2_h264_enc_init(struct v4l2_h264_enc *enc)
 	if (ret)
 		return ret;
 
+	rc->ops = enc->rc_ops;
+	rc->private_data = enc->private_data;
+
+	ret = v4l2_h264_enc_rc_init(rc);
+	if (ret)
+		goto error_buffers;
+
 	rbsp->ops = enc->rbsp_ops;
 	rbsp->private_data = enc->private_data;
 
 	return 0;
+
+error_buffers:
+	rec_buffers_free(enc);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(v4l2_h264_enc_init);
 
 void v4l2_h264_enc_exit(struct v4l2_h264_enc *enc)
 {
+	struct v4l2_h264_enc_rc *rc = &enc->rc;
+
+	v4l2_h264_enc_rc_exit(rc);
 	rec_buffers_free(enc);
 }
 EXPORT_SYMBOL_GPL(v4l2_h264_enc_exit);
@@ -496,6 +513,100 @@ static int state_prepare_params(struct v4l2_h264_enc *enc)
 	return 0;
 }
 
+static int state_prepare_rc(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_next;
+	struct v4l2_ctrl_handler *handler = enc->ctrl_handler;
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(handler, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE);
+	if (ctrl && ctrl->cur.val)
+		state->frame_rc_enable = true;
+	else
+		state->frame_rc_enable = false;
+
+	ctrl = v4l2_ctrl_find(handler, V4L2_CID_MPEG_VIDEO_H264_MIN_QP);
+	if (ctrl)
+		state->qp_min = ctrl->cur.val;
+	else
+		state->qp_min = 0;
+
+	ctrl = v4l2_ctrl_find(handler, V4L2_CID_MPEG_VIDEO_H264_MAX_QP);
+	if (ctrl)
+		state->qp_max = ctrl->cur.val;
+	else
+		state->qp_max = 51;
+
+	if (!state->frame_rc_enable) {
+		ctrl = v4l2_ctrl_find(handler,
+				      V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP);
+		if (!ctrl)
+			return -EINVAL;
+
+		state->qp_i = ctrl->cur.val;
+	}
+
+	if (!state->frame_rc_enable &&
+	    (enc->flags & V4L2_H264_ENC_FLAG_INTER_PRED)) {
+		ctrl = v4l2_ctrl_find(handler,
+				      V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP);
+		if (!ctrl)
+			return -EINVAL;
+
+		state->qp_p = ctrl->cur.val;
+	}
+
+	if (!state->frame_rc_enable &&
+	    (enc->flags & V4L2_H264_ENC_FLAG_INTER_BIPRED)) {
+		ctrl = v4l2_ctrl_find(handler,
+				      V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP);
+		if (!ctrl)
+			return -EINVAL;
+
+		state->qp_b = ctrl->cur.val;
+	}
+
+	if (!state->frame_rc_enable)
+		return 0;
+
+	ctrl = v4l2_ctrl_find(handler, V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
+	if (!ctrl)
+		return -EINVAL;
+
+	state->bitrate_mode = ctrl->cur.val;
+
+	if (state->bitrate_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ) {
+		ctrl = v4l2_ctrl_find(handler,
+				      V4L2_CID_MPEG_VIDEO_CONSTANT_QUALITY);
+		if (!ctrl)
+			return -EINVAL;
+
+		state->quality = ctrl->cur.val;
+		state->quality_min = ctrl->minimum;
+		state->quality_max = ctrl->maximum;
+	}
+
+	if (state->bitrate_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR ||
+	    state->bitrate_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) {
+		ctrl = v4l2_ctrl_find(handler, V4L2_CID_MPEG_VIDEO_BITRATE);
+		if (!ctrl)
+			return -EINVAL;
+
+		state->bitrate = ctrl->cur.val;
+	}
+
+	if (state->bitrate_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) {
+		ctrl = v4l2_ctrl_find(handler,
+				      V4L2_CID_MPEG_VIDEO_BITRATE_PEAK);
+		if (!ctrl)
+			return -EINVAL;
+
+		state->bitrate_peak = ctrl->cur.val;
+	}
+
+	return 0;
+}
+
 static int state_prepare(struct v4l2_h264_enc *enc)
 {
 	struct v4l2_h264_enc_state *state = &enc->state_next;
@@ -504,6 +615,10 @@ static int state_prepare(struct v4l2_h264_enc *enc)
 	memset(state, 0, sizeof(*state));
 
 	ret = state_prepare_params(enc);
+	if (ret)
+		return ret;
+
+	ret = state_prepare_rc(enc);
 	if (ret)
 		return ret;
 
@@ -1075,6 +1190,75 @@ static int ref_complete(struct v4l2_h264_enc *enc,
 	return 0;
 }
 
+static int rc_update(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_next;
+	struct v4l2_h264_enc_state *state_active = &enc->state_active;
+	int ret;
+
+	if (!enc->state_serial ||
+	    state_active->frame_rc_enable != state->frame_rc_enable ||
+	    (state_active->frame_rc_enable &&
+	     state_active->bitrate_mode != state->bitrate_mode)) {
+		ret = v4l2_h264_enc_rc_mode_update(&enc->rc);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int rc_step(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_active;
+	struct v4l2_ctrl_h264_pps *pps = &state->pps;
+	struct v4l2_ctrl_h264_encode_params *encode = &state->encode;
+	struct v4l2_h264_enc_rc *rc = &enc->rc;
+	int ret;
+
+	ret = v4l2_h264_enc_rc_step(rc, state);
+	if (ret)
+		return ret;
+
+	encode->slice_qp_delta = rc->qp - (pps->pic_init_qp_minus26 + 26);
+
+	pr_debug("+ v4l2-h264-enc: rc");
+
+	if (rc->mode) {
+		pr_debug("  rc mode: %s", rc->mode->name);
+
+		if (rc->mode->type == V4L2_H264_ENC_RC_TYPE_CBR) {
+			pr_debug("  rc bitrate: %u bits/s", state->bitrate);
+			pr_debug("  rc target: %lu bytes", rc->size);
+		}
+	}
+
+	pr_debug("  rc qp: %u", rc->qp);
+
+	return 0;
+}
+
+static int rc_complete(struct v4l2_h264_enc *enc,
+		       struct vb2_v4l2_buffer *buffer)
+{
+	struct v4l2_h264_enc_rc *rc = &enc->rc;
+	unsigned long bytesused;
+	int ret;
+
+	bytesused = vb2_get_plane_payload(&buffer->vb2_buf, 0);
+	if (WARN_ON(!bytesused))
+		return -EINVAL;
+
+	ret = v4l2_h264_enc_rc_complete(rc, bytesused);
+	if (ret)
+		return ret;
+
+	pr_debug("+ v4l2-h264-enc: complete");
+	pr_debug("  size: %lu bytes", bytesused);
+
+	return 0;
+}
+
 int v4l2_h264_enc_step(struct v4l2_h264_enc *enc,
 		       struct vb2_v4l2_buffer *buffer)
 {
@@ -1088,11 +1272,19 @@ int v4l2_h264_enc_step(struct v4l2_h264_enc *enc,
 	if (ret)
 		return ret;
 
+	ret = rc_update(enc);
+	if (ret)
+		return ret;
+
 	ret = state_commit(enc);
 	if (ret)
 		return ret;
 
 	ret = ref_step(enc);
+	if (ret)
+		return ret;
+
+	ret = rc_step(enc);
 	if (ret)
 		return ret;
 
@@ -1114,6 +1306,10 @@ int v4l2_h264_enc_complete(struct v4l2_h264_enc *enc,
 		return ret;
 
 	ret = ref_complete(enc, buffer);
+	if (ret)
+		return ret;
+
+	ret = rc_complete(enc, buffer);
 	if (ret)
 		return ret;
 

@@ -161,6 +161,30 @@ struct v4l2_h264_reflist_builder {
 	u8 num_valid;
 };
 
+static inline char v4l2_h264_slice_type_char(unsigned char slice_type)
+{
+	if (slice_type == V4L2_H264_SLICE_TYPE_I)
+		return 'I';
+	else if (slice_type == V4L2_H264_SLICE_TYPE_P)
+		return 'P';
+	else if (slice_type == V4L2_H264_SLICE_TYPE_B)
+		return 'B';
+	else
+		return 'X';
+}
+
+static inline const char *v4l2_h264_slice_type_name(unsigned char slice_type)
+{
+	if (slice_type == V4L2_H264_SLICE_TYPE_I)
+		return "intra";
+	else if (slice_type == V4L2_H264_SLICE_TYPE_P)
+		return "inter-pred";
+	else if (slice_type == V4L2_H264_SLICE_TYPE_B)
+		return "inter-bipred";
+	else
+		return "invalid";
+}
+
 void
 v4l2_h264_init_reflist_builder(struct v4l2_h264_reflist_builder *b,
 		const struct v4l2_ctrl_h264_decode_params *dec_params,

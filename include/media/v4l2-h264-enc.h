@@ -11,6 +11,7 @@
 #include <linux/v4l2-controls.h>
 #include <linux/videodev2.h>
 #include <media/v4l2-h264-enc-rbsp.h>
+#include <media/v4l2-h264-enc-rc.h>
 #include <media/videobuf2-v4l2.h>
 
 #define V4L2_H264_ENC_MB_UNIT	16
@@ -74,6 +75,21 @@ struct v4l2_h264_enc_state {
 	unsigned int width_aligned;
 	unsigned int height_mbs;
 	unsigned int height_aligned;
+
+	bool frame_rc_enable;
+
+	unsigned int qp_min;
+	unsigned int qp_max;
+	unsigned int qp_i;
+	unsigned int qp_p;
+	unsigned int qp_b;
+
+	int bitrate_mode;
+	unsigned int quality;
+	unsigned int quality_min;
+	unsigned int quality_max;
+	unsigned int bitrate;
+	unsigned int bitrate_peak;
 };
 
 struct v4l2_h264_enc_ops {
@@ -87,6 +103,7 @@ struct v4l2_h264_enc_ops {
 
 struct v4l2_h264_enc {
 	const struct v4l2_h264_enc_ops *ops;
+	const struct v4l2_h264_enc_rc_ops *rc_ops;
 	const struct v4l2_h264_enc_rbsp_ops *rbsp_ops;
 	void *private_data;
 
@@ -100,6 +117,7 @@ struct v4l2_h264_enc {
 	struct v4l2_h264_enc_state state_next;
 	unsigned int state_serial;
 
+	struct v4l2_h264_enc_rc rc;
 	struct v4l2_h264_enc_ref ref;
 	struct v4l2_h264_enc_rbsp rbsp;
 	unsigned int rbsp_update;
