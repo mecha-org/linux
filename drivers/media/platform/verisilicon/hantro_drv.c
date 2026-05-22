@@ -421,6 +421,8 @@ static const struct v4l2_ctrl_ops hantro_av1_ctrl_ops = {
 					 V4L2_JPEG_ACTIVE_MARKER_DHT)
 
 static const struct hantro_ctrl controls[] = {
+	/* JPEG Encoder */
+
 	{
 		.codec = HANTRO_JPEG_ENCODER,
 		.cfg = {
@@ -447,7 +449,127 @@ static const struct hantro_ctrl controls[] = {
 			 */
 			.flags = V4L2_CTRL_FLAG_READ_ONLY,
 		},
+	},
+
+	/* H.264 Encoder */
+
+	{
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_ENCODE_PARAMS,
+		},
 	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_SPS,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_PPS,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_START_CODE,
+			.min = V4L2_STATELESS_H264_START_CODE_NONE,
+			.max = V4L2_STATELESS_H264_START_CODE_ANNEX_B,
+			.def = V4L2_STATELESS_H264_START_CODE_ANNEX_B,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_AU_DELIMITER,
+			.step = 1,
+			.min = 0,
+			.max = 1,
+			.def = 0,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR,
+			.step = 1,
+			.min = 0,
+			.max = 1,
+			.def = 0,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE,
+			.step = 1,
+			.min = 0,
+			.max = 1,
+			.def = 0,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_H264_MIN_QP,
+			.step = 1,
+			.min = 0,
+			.max = 51,
+			.def = 0,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_H264_MAX_QP,
+			.step = 1,
+			.min = 0,
+			.max = 51,
+			.def = 51,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
+			.step = 1,
+			.min = 0,
+			.max = 51,
+			.def = 24,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP,
+			.step = 1,
+			.min = 0,
+			.max = 51,
+			.def = 28,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
+			.min = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
+			.max = V4L2_MPEG_VIDEO_BITRATE_MODE_CQ,
+			.def = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_CONSTANT_QUALITY,
+			.step = 1,
+			.min = 0,
+			.max = 100,
+			.def = 80,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_MPEG_VIDEO_BITRATE,
+			.step = 1,
+			.min = 1000,
+			.max = 96000000,
+			.def = 2000000,
+		},
+	},
+
+	/* MPEG-2 Decoder */
+
+	{
 		.codec = HANTRO_MPEG2_DECODER,
 		.cfg = {
 			.id = V4L2_CID_STATELESS_MPEG2_SEQUENCE,
@@ -462,7 +584,11 @@ static const struct hantro_ctrl controls[] = {
 		.cfg = {
 			.id = V4L2_CID_STATELESS_MPEG2_QUANTISATION,
 		},
-	}, {
+	},
+
+	/* VP8 Decoder */
+
+	{
 		.codec = HANTRO_VP8_DECODER,
 		.cfg = {
 			.id = V4L2_CID_STATELESS_VP8_FRAME,
@@ -472,7 +598,11 @@ static const struct hantro_ctrl controls[] = {
 		.cfg = {
 			.id = V4L2_CID_STATELESS_H264_DECODE_PARAMS,
 		},
-	}, {
+	},
+
+	/* H.264 Decoder */
+
+	{
 		.codec = HANTRO_H264_DECODER,
 		.cfg = {
 			.id = V4L2_CID_STATELESS_H264_SPS,
@@ -514,7 +644,11 @@ static const struct hantro_ctrl controls[] = {
 			BIT(V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED),
 			.def = V4L2_MPEG_VIDEO_H264_PROFILE_MAIN,
 		}
-	}, {
+	},
+
+	/* HEVC Decoder */
+
+	{
 		.codec = HANTRO_HEVC_DECODER,
 		.cfg = {
 			.id = V4L2_CID_STATELESS_HEVC_DECODE_MODE,
@@ -566,7 +700,11 @@ static const struct hantro_ctrl controls[] = {
 		.cfg = {
 			.id = V4L2_CID_STATELESS_HEVC_SCALING_MATRIX,
 		},
-	}, {
+	},
+
+	/* VP9 Decoder */
+
+	{
 		.codec = HANTRO_VP9_DECODER,
 		.cfg = {
 			.id = V4L2_CID_STATELESS_VP9_FRAME,
@@ -577,7 +715,11 @@ static const struct hantro_ctrl controls[] = {
 		.cfg = {
 			.id = V4L2_CID_STATELESS_VP9_COMPRESSED_HDR,
 		},
-	}, {
+	},
+
+	/* AV1 Decoder */
+
+	{
 		.codec = HANTRO_AV1_DECODER,
 		.cfg = {
 			.id = V4L2_CID_STATELESS_AV1_FRAME,

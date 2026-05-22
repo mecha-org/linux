@@ -453,13 +453,11 @@ int hantro_h264_dec_prepare_run(struct hantro_ctx *ctx)
 	if (WARN_ON(!ctrls->decode))
 		return -EINVAL;
 
-	ctrls->sps =
-		hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_SPS);
+	ctrls->sps = hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_SPS);
 	if (WARN_ON(!ctrls->sps))
 		return -EINVAL;
 
-	ctrls->pps =
-		hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_PPS);
+	ctrls->pps = hantro_get_ctrl(ctx, V4L2_CID_STATELESS_H264_PPS);
 	if (WARN_ON(!ctrls->pps))
 		return -EINVAL;
 

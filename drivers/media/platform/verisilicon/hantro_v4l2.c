@@ -633,6 +633,12 @@ static int hantro_set_fmt_out(struct hantro_ctx *ctx,
 				     hantro_get_format_depth(pix_mp->pixelformat),
 				     need_postproc);
 
+	/* Propagate dimensions for encoders. */
+	if (ctx->is_encoder) {
+		ctx->dst_fmt.width = pix_mp->width;
+		ctx->dst_fmt.height = pix_mp->height;
+	}
+
 	/* Colorimetry information are always propagated. */
 	ctx->dst_fmt.colorspace = pix_mp->colorspace;
 	ctx->dst_fmt.ycbcr_enc = pix_mp->ycbcr_enc;

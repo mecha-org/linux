@@ -12,11 +12,13 @@
 #include <linux/interrupt.h>
 #include <linux/v4l2-controls.h>
 #include <media/v4l2-ctrls.h>
+#include <media/v4l2-h264-enc.h>
 #include <media/v4l2-vp9.h>
 #include <media/videobuf2-core.h>
 
 #include "rockchip_av1_entropymode.h"
 #include "rockchip_av1_filmgrain.h"
+#include "hantro_vc8000e_regs.h"
 
 #define DEC_8190_ALIGN_MASK	0x07U
 
@@ -67,6 +69,22 @@ struct hantro_aux_buf {
 	dma_addr_t dma;
 	size_t size;
 	unsigned long attrs;
+};
+
+struct hantro_vc8000e_rec_buf {
+	struct hantro_aux_buf luma;
+	struct hantro_aux_buf chroma;
+	struct hantro_aux_buf luma_4n;
+	struct hantro_aux_buf colctbs;
+};
+
+struct hantro_h264_enc_hw_ctx {
+	struct v4l2_h264_enc enc;
+	struct hantro_aux_buf nal_tbl;
+
+	union {
+		struct hantro_vc8000e_regs vc8000e_regs;
+	};
 };
 
 /* Max. number of entries in the DPB (HW limitation). */
@@ -449,6 +467,15 @@ int rockchip_vpu2_h264_dec_run(struct hantro_ctx *ctx);
 int hantro_g1_h264_dec_run(struct hantro_ctx *ctx);
 int hantro_h264_dec_init(struct hantro_ctx *ctx);
 void hantro_h264_dec_exit(struct hantro_ctx *ctx);
+
+irqreturn_t hantro_vc8000e_irq(int irq, void *dev_id);
+int hantro_vc8000e_h264_enc_init(struct hantro_ctx *ctx);
+void hantro_vc8000e_h264_enc_exit(struct hantro_ctx *ctx);
+void hantro_vc8000e_h264_enc_done(struct hantro_ctx *ctx);
+int hantro_vc8000e_h264_enc_run(struct hantro_ctx *ctx);
+int hantro_h264_enc_prepare_run(struct hantro_ctx *ctx);
+int hantro_h264_enc_init(struct hantro_ctx *ctx);
+void hantro_h264_enc_exit(struct hantro_ctx *ctx);
 
 int hantro_hevc_dec_init(struct hantro_ctx *ctx);
 void hantro_hevc_dec_exit(struct hantro_ctx *ctx);

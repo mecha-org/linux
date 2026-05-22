@@ -12,6 +12,7 @@ config VIDEO_HANTRO
 	select VIDEOBUF2_VMALLOC
 	select V4L2_MEM2MEM_DEV
 	select V4L2_H264
+	select V4L2_H264_ENC
 	select V4L2_JPEG_HELPER
 	select V4L2_VP9
 	help
