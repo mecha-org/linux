@@ -213,6 +213,41 @@ static int vidioc_enum_framesizes(struct file *file, void *priv,
 	return 0;
 }
 
+static int vidioc_enum_frameintervals(struct file *file, void *priv,
+				      struct v4l2_frmivalenum *fival)
+{
+	struct v4l2_frmsizeenum fsize = { 0 };
+	unsigned int width = fival->width;
+	unsigned int height = fival->height;
+	int ret;
+
+	if (fival->index > 0)
+		return -EINVAL;
+
+	/* First check that the provided format and dimensions are valid. */
+	fsize.pixel_format = fival->pixel_format;
+	ret = vidioc_enum_framesizes(file, priv, &fsize);
+	if (ret)
+		return ret;
+
+	if (width < fsize.stepwise.min_width ||
+	    width > fsize.stepwise.max_width ||
+	    height < fsize.stepwise.min_height ||
+	    height > fsize.stepwise.max_height)
+		return -EINVAL;
+
+	/* Any possible frame interval is acceptable. */
+	fival->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+	fival->stepwise.min.numerator = 1;
+	fival->stepwise.min.denominator = USHRT_MAX;
+	fival->stepwise.max.numerator = USHRT_MAX;
+	fival->stepwise.max.denominator = 1;
+	fival->stepwise.step.numerator = 1;
+	fival->stepwise.step.denominator = 1;
+
+	return 0;
+}
+
 static int vidioc_enum_fmt(struct file *file, void *priv,
 			   struct v4l2_fmtdesc *f, bool capture)
 
@@ -488,10 +523,23 @@ hantro_reset_raw_fmt(struct hantro_ctx *ctx, int bit_depth, bool need_postproc)
 	return ret;
 }
 
+static void
+hantro_reset_timeperframe(struct hantro_ctx *ctx)
+{
+	struct v4l2_fract *timeperframe = &ctx->src_timeperframe;
+	struct v4l2_fract *timeperframe_propagate = &ctx->dst_timeperframe;
+
+	timeperframe->numerator = 1;
+	timeperframe->denominator = 25;
+
+	*timeperframe_propagate = *timeperframe;
+}
+
 void hantro_reset_fmts(struct hantro_ctx *ctx)
 {
 	hantro_reset_encoded_fmt(ctx);
 	hantro_reset_raw_fmt(ctx, HANTRO_DEFAULT_BIT_DEPTH, HANTRO_AUTO_POSTPROC);
+	hantro_reset_timeperframe(ctx);
 }
 
 static void
@@ -743,6 +791,54 @@ static int vidioc_s_selection(struct file *file, void *priv,
 	return 0;
 }
 
+static int vidioc_g_parm(struct file *file, void *priv,
+			 struct v4l2_streamparm *parm)
+{
+	struct hantro_ctx *ctx = file_to_ctx(file);
+	struct v4l2_fract *timeperframe;
+
+	if (V4L2_TYPE_IS_OUTPUT(parm->type)) {
+		timeperframe = &ctx->src_timeperframe;
+		parm->parm.output.capability = V4L2_CAP_TIMEPERFRAME;
+		parm->parm.output.timeperframe = *timeperframe;
+	} else {
+		timeperframe = &ctx->dst_timeperframe;
+		parm->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+		parm->parm.capture.timeperframe = *timeperframe;
+	}
+
+	return 0;
+}
+
+static int vidioc_s_parm(struct file *file, void *priv,
+			 struct v4l2_streamparm *parm)
+{
+	struct hantro_ctx *ctx = file_to_ctx(file);
+	struct v4l2_fract *timeperframe_propagate;
+	struct v4l2_fract *timeperframe_ctx;
+	struct v4l2_fract *timeperframe;
+
+	if (V4L2_TYPE_IS_OUTPUT(parm->type)) {
+		parm->parm.output.capability = V4L2_CAP_TIMEPERFRAME;
+		timeperframe = &parm->parm.output.timeperframe;
+		timeperframe_ctx = &ctx->src_timeperframe;
+		timeperframe_propagate = &ctx->dst_timeperframe;
+	} else {
+		parm->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+		timeperframe = &parm->parm.capture.timeperframe;
+		timeperframe_ctx = &ctx->dst_timeperframe;
+		timeperframe_propagate = NULL;
+	}
+
+	*timeperframe_ctx = *timeperframe;
+
+	/* Propagate from source to destination. */
+	if (timeperframe_propagate)
+		*timeperframe_propagate = *timeperframe;
+
+	return 0;
+}
+
 static const struct v4l2_event hantro_eos_event = {
 	.type = V4L2_EVENT_EOS
 };
@@ -778,6 +874,7 @@ static int vidioc_encoder_cmd(struct file *file, void *priv,
 const struct v4l2_ioctl_ops hantro_ioctl_ops = {
 	.vidioc_querycap = vidioc_querycap,
 	.vidioc_enum_framesizes = vidioc_enum_framesizes,
+	.vidioc_enum_frameintervals = vidioc_enum_frameintervals,
 
 	.vidioc_try_fmt_vid_cap_mplane = vidioc_try_fmt_cap_mplane,
 	.vidioc_try_fmt_vid_out_mplane = vidioc_try_fmt_out_mplane,
@@ -805,6 +902,8 @@ const struct v4l2_ioctl_ops hantro_ioctl_ops = {
 
 	.vidioc_g_selection = vidioc_g_selection,
 	.vidioc_s_selection = vidioc_s_selection,
+	.vidioc_g_parm = vidioc_g_parm,
+	.vidioc_s_parm = vidioc_s_parm,
 
 	.vidioc_decoder_cmd = v4l2_m2m_ioctl_stateless_decoder_cmd,
 	.vidioc_try_decoder_cmd = v4l2_m2m_ioctl_stateless_try_decoder_cmd,

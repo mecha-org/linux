@@ -260,6 +260,9 @@ struct hantro_ctx {
 	struct v4l2_pix_format_mplane dst_fmt;
 	struct v4l2_pix_format_mplane ref_fmt;
 
+	struct v4l2_fract src_timeperframe;
+	struct v4l2_fract dst_timeperframe;
+
 	struct v4l2_ctrl_handler ctrl_handler;
 	int jpeg_quality;
 	int bit_depth;
