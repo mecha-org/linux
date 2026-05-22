@@ -35,6 +35,33 @@
 
 struct v4l2_h264_enc;
 
+struct v4l2_h264_enc_rec_buffer {
+	void *private_data;
+	bool allocated;
+};
+
+struct v4l2_h264_enc_ref {
+	struct v4l2_h264_enc_rec_buffer buffer_current;
+	struct v4l2_h264_enc_rec_buffer buffers[V4L2_H264_NUM_DPB_ENTRIES];
+	struct v4l2_h264_dpb_entry dpb[V4L2_H264_NUM_DPB_ENTRIES];
+	unsigned int slots_count;
+
+	struct v4l2_h264_reference l0[V4L2_H264_REF_LIST_LEN];
+	unsigned int l0_active_count;
+	struct v4l2_h264_reference l1[V4L2_H264_REF_LIST_LEN];
+	unsigned int l1_active_count;
+
+	struct v4l2_h264_reflist_builder builder;
+
+	unsigned int prev_pic_order_cnt_msb;
+	unsigned int prev_pic_order_cnt_lsb;
+	unsigned int pic_order_cnt_msb;
+	unsigned int pic_order_cnt_lsb;
+	unsigned int top_field_order_cnt;
+	unsigned int bottom_field_order_cnt;
+	unsigned int pic_order_cnt;
+};
+
 struct v4l2_h264_enc_state {
 	struct v4l2_ctrl_h264_sps sps;
 	struct v4l2_h264_sps_video sps_video;
@@ -52,6 +79,10 @@ struct v4l2_h264_enc_state {
 struct v4l2_h264_enc_ops {
 	int (*state_constrain)(struct v4l2_h264_enc *enc,
 			       struct v4l2_h264_enc_state *state);
+	int (*rec_buffer_alloc)(struct v4l2_h264_enc *enc,
+				struct v4l2_h264_enc_rec_buffer *rec_buffer);
+	int (*rec_buffer_free)(struct v4l2_h264_enc *enc,
+			       struct v4l2_h264_enc_rec_buffer *rec_buffer);
 };
 
 struct v4l2_h264_enc {
@@ -63,11 +94,13 @@ struct v4l2_h264_enc {
 	struct v4l2_pix_format_mplane *format_mplane;
 	struct v4l2_fract *timeperframe;
 	struct v4l2_ctrl_handler *ctrl_handler;
+	unsigned int ref_slots_count_init;
 
 	struct v4l2_h264_enc_state state_active;
 	struct v4l2_h264_enc_state state_next;
 	unsigned int state_serial;
 
+	struct v4l2_h264_enc_ref ref;
 	struct v4l2_h264_enc_rbsp rbsp;
 	unsigned int rbsp_update;
 

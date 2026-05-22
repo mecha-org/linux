@@ -12,9 +12,90 @@
 #include <media/v4l2-h264-enc-rbsp.h>
 #include <media/videobuf2-v4l2.h>
 
+static int rec_buffer_alloc(struct v4l2_h264_enc *enc,
+			    struct v4l2_h264_enc_rec_buffer *buffer)
+{
+	int ret;
+
+	ret = v4l2_h264_enc_op(enc, rec_buffer_alloc, buffer);
+	if (ret)
+		return ret;
+
+	buffer->allocated = true;
+	enc->ref.slots_count++;
+
+	return 0;
+}
+
+static void rec_buffer_free(struct v4l2_h264_enc *enc,
+			    struct v4l2_h264_enc_rec_buffer *buffer)
+{
+	if (WARN_ON(!enc->ref.slots_count))
+		return;
+
+	v4l2_h264_enc_op(enc, rec_buffer_free, buffer);
+
+	buffer->allocated = false;
+	enc->ref.slots_count--;
+}
+
+static int rec_buffers_alloc(struct v4l2_h264_enc *enc,
+			     unsigned int slots_count)
+{
+	struct v4l2_h264_enc_ref *ref = &enc->ref;
+	unsigned int i;
+	int ret;
+
+	ret = rec_buffer_alloc(enc, &ref->buffer_current);
+	if (ret)
+		return ret;
+
+	if (!(enc->flags & (V4L2_H264_ENC_FLAG_INTER_PRED |
+			    V4L2_H264_ENC_FLAG_INTER_BIPRED)))
+		return 0;
+
+	for (i = 0; i < slots_count; i++) {
+		ret = rec_buffer_alloc(enc, &ref->buffers[i]);
+		if (ret)
+			goto error;
+	}
+
+	return 0;
+
+error:
+	while (i > 0) {
+		i--;
+		rec_buffer_free(enc, &ref->buffers[i]);
+	}
+
+	rec_buffer_free(enc, &ref->buffer_current);
+
+	return ret;
+}
+
+static void rec_buffers_free(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_ref *ref = &enc->ref;
+	unsigned int i;
+
+	rec_buffer_free(enc, &ref->buffer_current);
+
+	if (!(enc->flags & (V4L2_H264_ENC_FLAG_INTER_PRED |
+			    V4L2_H264_ENC_FLAG_INTER_BIPRED)))
+		return;
+
+	for (i = 0; i < V4L2_H264_NUM_DPB_ENTRIES; i++) {
+		if (!ref->buffers[i].allocated)
+			continue;
+
+		rec_buffer_free(enc, &ref->buffers[i]);
+	}
+}
+
 int v4l2_h264_enc_init(struct v4l2_h264_enc *enc)
 {
 	struct v4l2_h264_enc_rbsp *rbsp = &enc->rbsp;
+	unsigned int slots_count = 0;
 	int ret;
 
 	if ((!enc->format && !enc->format_mplane) || !enc->timeperframe ||
@@ -25,6 +106,23 @@ int v4l2_h264_enc_init(struct v4l2_h264_enc *enc)
 	memset(&enc->state_next, 0, sizeof(enc->state_next));
 	enc->state_serial = 0;
 
+	memset(&enc->ref, 0, sizeof(enc->ref));
+
+	if (enc->flags & (V4L2_H264_ENC_FLAG_INTER_PRED |
+			  V4L2_H264_ENC_FLAG_INTER_BIPRED)) {
+		if (!enc->ref_slots_count_init)
+			slots_count = V4L2_H264_NUM_DPB_ENTRIES / 2;
+		else if (WARN_ON(enc->ref_slots_count_init >
+				 V4L2_H264_NUM_DPB_ENTRIES))
+			slots_count = V4L2_H264_NUM_DPB_ENTRIES;
+		else
+			slots_count = enc->ref_slots_count_init;
+	}
+
+	ret = rec_buffers_alloc(enc, slots_count);
+	if (ret)
+		return ret;
+
 	rbsp->ops = enc->rbsp_ops;
 	rbsp->private_data = enc->private_data;
 
@@ -34,6 +132,7 @@ EXPORT_SYMBOL_GPL(v4l2_h264_enc_init);
 
 void v4l2_h264_enc_exit(struct v4l2_h264_enc *enc)
 {
+	rec_buffers_free(enc);
 }
 EXPORT_SYMBOL_GPL(v4l2_h264_enc_exit);
 
@@ -665,6 +764,317 @@ static int rbsp_step(struct v4l2_h264_enc *enc,
 	return 0;
 }
 
+static struct v4l2_h264_enc_rec_buffer *
+ref_step_buffers_slot_find(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_rec_buffer *buffer;
+	unsigned int i;
+
+	for (i = 0; i < V4L2_H264_NUM_DPB_ENTRIES; i++) {
+		buffer = &enc->ref.buffers[i];
+
+		if (buffer->allocated)
+			continue;
+
+		return buffer;
+	}
+
+	return NULL;
+}
+
+static int ref_step_buffers(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_active;
+	struct v4l2_ctrl_h264_sps *sps = &state->sps;
+	struct v4l2_h264_enc_ref *ref = &enc->ref;
+	struct v4l2_h264_enc_rec_buffer *buffer;
+	unsigned int count;
+	unsigned int i;
+	int ret;
+
+	/*
+	 * Only increase the number of slots. It avoids the cost of free
+	 * (including on the first frame) and the cost of possible future
+	 * allocations, at the expense of memory.
+	 */
+	if (sps->max_num_ref_frames <= ref->slots_count)
+		return 0;
+
+	count = sps->max_num_ref_frames - ref->slots_count;
+
+	for (i = 0; i < count; i++) {
+		buffer = ref_step_buffers_slot_find(enc);
+		if (WARN_ON(!buffer))
+			return -ENOMEM;
+
+		ret = rec_buffer_alloc(enc, buffer);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int ref_step_poc(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_active;
+	struct v4l2_ctrl_h264_sps *sps = &state->sps;
+	struct v4l2_ctrl_h264_pps *pps = &state->pps;
+	struct v4l2_ctrl_h264_encode_params *encode = &state->encode;
+	struct v4l2_h264_enc_ref *ref = &enc->ref;
+	unsigned int pic_order_cnt_lsb;
+	unsigned int pic_order_cnt_msb;
+	unsigned int prev_pic_order_cnt_msb;
+	unsigned int prev_pic_order_cnt_lsb;
+	unsigned int max_pic_order_cnt_lsb;
+	unsigned int delta_pic_order_cnt_bottom;
+	unsigned int top_field_order_cnt;
+	unsigned int bottom_field_order_cnt;
+
+	/* Only pic_order_cnt_type = 0 is currently supported. */
+	if (sps->pic_order_cnt_type)
+		return -EINVAL;
+
+	max_pic_order_cnt_lsb = BIT(sps->log2_max_pic_order_cnt_lsb_minus4 + 4);
+	pic_order_cnt_lsb = encode->pic_order_cnt_lsb;
+
+	if (encode->flags & V4L2_H264_ENCODE_FLAG_IDR_PIC) {
+		prev_pic_order_cnt_msb = 0;
+		prev_pic_order_cnt_lsb = 0;
+	} else {
+		prev_pic_order_cnt_msb = ref->prev_pic_order_cnt_msb;
+		prev_pic_order_cnt_lsb = ref->prev_pic_order_cnt_lsb;
+	}
+
+	if ((pic_order_cnt_lsb < prev_pic_order_cnt_lsb) &&
+	    ((prev_pic_order_cnt_lsb - pic_order_cnt_lsb) >=
+	     (max_pic_order_cnt_lsb / 2)))
+		pic_order_cnt_msb = prev_pic_order_cnt_msb +
+				    max_pic_order_cnt_lsb;
+	else if ((pic_order_cnt_lsb > prev_pic_order_cnt_lsb) &&
+		 ((pic_order_cnt_lsb - prev_pic_order_cnt_lsb) >
+		  (max_pic_order_cnt_lsb / 2)))
+		pic_order_cnt_msb = prev_pic_order_cnt_msb -
+				    max_pic_order_cnt_lsb;
+	else
+		pic_order_cnt_msb = prev_pic_order_cnt_msb;
+
+	top_field_order_cnt = pic_order_cnt_msb + pic_order_cnt_lsb;
+
+	if (pps->flags & V4L2_H264_PPS_FLAG_BOTTOM_FIELD_PIC_ORDER_IN_FRAME_PRESENT)
+		delta_pic_order_cnt_bottom = encode->delta_pic_order_cnt_bottom;
+	else
+		delta_pic_order_cnt_bottom = 0;
+
+	if (!(encode->flags & V4L2_H264_ENCODE_FLAG_FIELD_PIC))
+		bottom_field_order_cnt = top_field_order_cnt +
+					 delta_pic_order_cnt_bottom;
+	else
+		bottom_field_order_cnt = top_field_order_cnt;
+
+	ref->pic_order_cnt_msb = pic_order_cnt_msb;
+	ref->pic_order_cnt_lsb = pic_order_cnt_lsb;
+	ref->top_field_order_cnt = top_field_order_cnt;
+	ref->bottom_field_order_cnt = bottom_field_order_cnt;
+	ref->pic_order_cnt = min(top_field_order_cnt, bottom_field_order_cnt);
+
+	return 0;
+}
+
+static int ref_step(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_active;
+	struct v4l2_ctrl_h264_sps *sps = &state->sps;
+	struct v4l2_ctrl_h264_pps *pps = &state->pps;
+	struct v4l2_ctrl_h264_encode_params *encode = &state->encode;
+	struct v4l2_h264_enc_ref *ref = &enc->ref;
+	unsigned int l0_active_count_max;
+	unsigned int l1_active_count_max;
+	int ret;
+
+	ret = ref_step_buffers(enc);
+	if (ret)
+		return ret;
+
+	ret = ref_step_poc(enc);
+	if (ret)
+		return ret;
+
+	ref->l0_active_count = 0;
+	ref->l1_active_count = 0;
+
+	if (encode->slice_type == V4L2_H264_SLICE_TYPE_I) {
+		/* Flush the DPB on IDR pictures. */
+		if (encode->flags & V4L2_H264_ENCODE_FLAG_IDR_PIC)
+			memset(ref->dpb, 0, sizeof(ref->dpb));
+
+		return 0;
+	}
+
+	/* Generate reference lists. */
+
+	v4l2_h264_init_reflist_builder_gen(&ref->builder, sps, ref->dpb,
+					   ref->pic_order_cnt,
+					   encode->frame_num,
+					   V4L2_H264_FRAME_REF);
+
+	if (encode->flags & V4L2_H264_ENCODE_FLAG_NUM_REF_IDX_ACTIVE_OVERRIDE) {
+		l0_active_count_max = encode->num_ref_idx_l0_active_minus1 + 1;
+		l1_active_count_max = encode->num_ref_idx_l1_active_minus1 + 1;
+	} else {
+		l0_active_count_max =
+			pps->num_ref_idx_l0_default_active_minus1 + 1;
+		l1_active_count_max =
+			pps->num_ref_idx_l1_default_active_minus1 + 1;
+	}
+
+	switch (encode->slice_type) {
+	case V4L2_H264_SLICE_TYPE_P:
+		v4l2_h264_build_p_ref_list(&ref->builder, ref->l0);
+
+		if (ref->builder.num_valid > l0_active_count_max)
+			ref->l0_active_count = l0_active_count_max;
+		else
+			ref->l0_active_count = ref->builder.num_valid;
+
+		WARN_ON(!ref->l0_active_count);
+
+		break;
+	case V4L2_H264_SLICE_TYPE_B:
+		v4l2_h264_build_b_ref_lists(&ref->builder, ref->l0, ref->l1);
+
+		if (ref->builder.num_valid > l0_active_count_max)
+			ref->l0_active_count = l0_active_count_max;
+		else
+			ref->l0_active_count = ref->builder.num_valid;
+
+		WARN_ON(!ref->l0_active_count);
+
+		if (ref->builder.num_valid > l1_active_count_max)
+			ref->l1_active_count = l1_active_count_max;
+		else
+			ref->l1_active_count = ref->builder.num_valid;
+
+		WARN_ON(!ref->l1_active_count);
+
+		break;
+	}
+
+	pr_debug("+ v4l2-h264-enc: ref");
+	pr_debug("  ref active l0: %u, l1: %u", ref->l0_active_count,
+		 ref->l1_active_count);
+
+	return 0;
+}
+
+static int ref_complete_slot_find(struct v4l2_h264_enc *enc,
+				  unsigned int *index)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_active;
+	struct v4l2_ctrl_h264_sps *sps = &state->sps;
+	struct v4l2_ctrl_h264_encode_params *encode = &state->encode;
+	struct v4l2_h264_enc_ref *ref = &enc->ref;
+	unsigned int max_frame_num = BIT(sps->log2_max_frame_num_minus4 + 4);
+	unsigned int frame_num_wrap_smallest = encode->frame_num;
+	unsigned int frame_num_wrap_smallest_index;
+	unsigned int frame_num_wrap;
+	struct v4l2_h264_enc_rec_buffer *buffer;
+	struct v4l2_h264_dpb_entry *dpb_entry;
+	unsigned int i;
+
+	for (i = 0; i < V4L2_H264_NUM_DPB_ENTRIES; i++) {
+		buffer = &ref->buffers[i];
+		dpb_entry = &ref->dpb[i];
+
+		if (!buffer->allocated)
+			continue;
+
+		/* Return an unused slot. */
+		if (!(dpb_entry->flags & V4L2_H264_DPB_ENTRY_FLAG_ACTIVE)) {
+			*index = i;
+			return 0;
+		}
+
+		/* Track the smallest FrameNumWrap value. */
+		if (dpb_entry->frame_num > encode->frame_num)
+			frame_num_wrap = dpb_entry->frame_num - max_frame_num;
+		else
+			frame_num_wrap = dpb_entry->frame_num;
+
+		if (frame_num_wrap < frame_num_wrap_smallest) {
+			frame_num_wrap_smallest = frame_num_wrap;
+			frame_num_wrap_smallest_index = i;
+		}
+	}
+
+	/* Clear the evicted DPB entry. */
+	dpb_entry = &ref->dpb[frame_num_wrap_smallest_index];
+	memset(dpb_entry, 0, sizeof(*dpb_entry));
+
+	*index = frame_num_wrap_smallest_index;
+
+	return 0;
+}
+
+static int ref_complete_swap(struct v4l2_h264_enc *enc, unsigned int index,
+			     u64 ts)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_active;
+	struct v4l2_ctrl_h264_encode_params *encode = &state->encode;
+	struct v4l2_h264_enc_ref *ref = &enc->ref;
+	struct v4l2_h264_dpb_entry *dpb_entry = &ref->dpb[index];
+	struct v4l2_h264_enc_rec_buffer *buffer = &ref->buffers[index];
+	struct v4l2_h264_enc_rec_buffer *buffer_current =
+		&ref->buffer_current;
+
+	/* Set the DPB entry of the available slot. */
+	memset(dpb_entry, 0, sizeof(*dpb_entry));
+	dpb_entry->reference_ts = ts;
+	dpb_entry->pic_num = encode->frame_num;
+	dpb_entry->frame_num = encode->frame_num;
+	dpb_entry->fields = V4L2_H264_FRAME_REF;
+	dpb_entry->top_field_order_cnt = ref->top_field_order_cnt;
+	dpb_entry->bottom_field_order_cnt = ref->bottom_field_order_cnt;
+	dpb_entry->flags = V4L2_H264_DPB_ENTRY_FLAG_VALID |
+			   V4L2_H264_DPB_ENTRY_FLAG_ACTIVE;
+
+	if (encode->flags & V4L2_H264_ENCODE_FLAG_LONG_TERM_REFERENCE)
+		dpb_entry->flags |= V4L2_H264_DPB_ENTRY_FLAG_LONG_TERM;
+
+	/* Swap the current buffer with the available slot. */
+	swap(*buffer_current, *buffer);
+
+	return 0;
+}
+
+static int ref_complete(struct v4l2_h264_enc *enc,
+			struct vb2_v4l2_buffer *buffer)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_active;
+	struct v4l2_ctrl_h264_encode_params *encode = &state->encode;
+	struct v4l2_h264_enc_ref *ref = &enc->ref;
+	unsigned int index;
+	int ret;
+
+	if (!encode->nal_ref_idc)
+		return 0;
+
+	/* Keep the POC as last reference. */
+	ref->prev_pic_order_cnt_msb = ref->pic_order_cnt_msb;
+	ref->prev_pic_order_cnt_lsb = ref->pic_order_cnt_lsb;
+
+	ret = ref_complete_slot_find(enc, &index);
+	if (ret)
+		return ret;
+
+	/* Move our current picture to the DPB. */
+	ret = ref_complete_swap(enc, index, buffer->vb2_buf.timestamp);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 int v4l2_h264_enc_step(struct v4l2_h264_enc *enc,
 		       struct vb2_v4l2_buffer *buffer)
 {
@@ -682,6 +1092,10 @@ int v4l2_h264_enc_step(struct v4l2_h264_enc *enc,
 	if (ret)
 		return ret;
 
+	ret = ref_step(enc);
+	if (ret)
+		return ret;
+
 	ret = rbsp_step(enc, buffer);
 	if (ret)
 		return ret;
@@ -696,6 +1110,10 @@ int v4l2_h264_enc_complete(struct v4l2_h264_enc *enc,
 	int ret;
 
 	ret = state_complete(enc, buffer);
+	if (ret)
+		return ret;
+
+	ret = ref_complete(enc, buffer);
 	if (ret)
 		return ret;
 
