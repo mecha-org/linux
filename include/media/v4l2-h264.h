@@ -42,6 +42,7 @@ struct v4l2_h264_reflist_builder {
 	u8 cur_pic_fields;
 
 	struct v4l2_h264_reference unordered_reflist[V4L2_H264_REF_LIST_LEN];
+	/* FIXME: confusing with valid flag (active is checked). Proper terminology is "used" */
 	u8 num_valid;
 };
 
@@ -50,6 +51,12 @@ v4l2_h264_init_reflist_builder(struct v4l2_h264_reflist_builder *b,
 		const struct v4l2_ctrl_h264_decode_params *dec_params,
 		const struct v4l2_ctrl_h264_sps *sps,
 		const struct v4l2_h264_dpb_entry dpb[V4L2_H264_NUM_DPB_ENTRIES]);
+
+void
+v4l2_h264_init_reflist_builder_gen(struct v4l2_h264_reflist_builder *b,
+		const struct v4l2_ctrl_h264_sps *sps,
+		const struct v4l2_h264_dpb_entry dpb[V4L2_H264_NUM_DPB_ENTRIES],
+		unsigned int pic_order_count, unsigned int frame_num, unsigned int fields);
 
 /**
  * v4l2_h264_build_b_ref_lists() - Build the B0/B1 reference lists
