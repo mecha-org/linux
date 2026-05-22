@@ -9,10 +9,12 @@
 #include <linux/v4l2-controls.h>
 #include <media/v4l2-h264.h>
 #include <media/v4l2-h264-enc.h>
+#include <media/v4l2-h264-enc-rbsp.h>
 #include <media/videobuf2-v4l2.h>
 
 int v4l2_h264_enc_init(struct v4l2_h264_enc *enc)
 {
+	struct v4l2_h264_enc_rbsp *rbsp = &enc->rbsp;
 	int ret;
 
 	if ((!enc->format && !enc->format_mplane) || !enc->timeperframe ||
@@ -22,6 +24,9 @@ int v4l2_h264_enc_init(struct v4l2_h264_enc *enc)
 	memset(&enc->state_active, 0, sizeof(enc->state_active));
 	memset(&enc->state_next, 0, sizeof(enc->state_next));
 	enc->state_serial = 0;
+
+	rbsp->ops = enc->rbsp_ops;
+	rbsp->private_data = enc->private_data;
 
 	return 0;
 }
@@ -520,6 +525,146 @@ static int state_complete(struct v4l2_h264_enc *enc,
 	return 0;
 }
 
+static int rbsp_update(struct v4l2_h264_enc *enc)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_next;
+	struct v4l2_h264_enc_state *state_active = &enc->state_active;
+	struct v4l2_ctrl_h264_encode_params *encode = &state->encode;
+	struct v4l2_ctrl_handler *handler = enc->ctrl_handler;
+	struct v4l2_ctrl *ctrl;
+
+	enc->rbsp_update = 0;
+
+	/* Start Code */
+
+	ctrl = v4l2_ctrl_find(handler, V4L2_CID_STATELESS_H264_START_CODE);
+	if ((ctrl && ctrl->cur.val == V4L2_STATELESS_H264_START_CODE_ANNEX_B) ||
+	    !ctrl)
+		enc->rbsp_update |= V4L2_H264_ENC_RBSP_UPDATE_START_CODE;
+
+	/* AUD */
+
+	ctrl = v4l2_ctrl_find(handler, V4L2_CID_MPEG_VIDEO_AU_DELIMITER);
+	if (ctrl && ctrl->cur.val)
+		enc->rbsp_update |= V4L2_H264_ENC_RBSP_UPDATE_AUD;
+
+	/* SPS */
+
+	if (!enc->state_serial) {
+		if (memcmp(&state_active->sps, &state->sps,
+			   sizeof(state_active->sps)) ||
+		    memcmp(&state_active->sps_video, &state->sps_video,
+			   sizeof(state_active->sps_video)))
+			enc->rbsp_update |= V4L2_H264_ENC_RBSP_UPDATE_SPS;
+	} else {
+		enc->rbsp_update |= V4L2_H264_ENC_RBSP_UPDATE_SPS;
+	}
+
+	/* PPS */
+
+	if (!enc->state_serial) {
+		if (memcmp(&state_active->pps, &state->pps,
+			   sizeof(state_active->pps)))
+			enc->rbsp_update |= V4L2_H264_ENC_RBSP_UPDATE_PPS;
+	} else {
+		enc->rbsp_update |= V4L2_H264_ENC_RBSP_UPDATE_PPS;
+	}
+
+	/* IDR Prepend */
+
+	ctrl = v4l2_ctrl_find(handler,
+			      V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR);
+	if (ctrl && ctrl->cur.val &&
+	    encode->flags & V4L2_H264_ENCODE_FLAG_IDR_PIC)
+		enc->rbsp_update |= V4L2_H264_ENC_RBSP_UPDATE_SPS |
+				    V4L2_H264_ENC_RBSP_UPDATE_PPS;
+
+	/* Slice */
+
+	enc->rbsp_update |= V4L2_H264_ENC_RBSP_UPDATE_SLICE_HEADER;
+
+	return 0;
+}
+
+static int rbsp_step_unit(struct v4l2_h264_enc *enc,
+			      unsigned int rbsp_update, unsigned int hw_flag)
+{
+	struct v4l2_h264_enc_state *state = &enc->state_active;
+	struct v4l2_ctrl_h264_sps *sps = &state->sps;
+	struct v4l2_h264_sps_video *sps_video = &state->sps_video;
+	struct v4l2_ctrl_h264_pps *pps = &state->pps;
+	struct v4l2_ctrl_h264_encode_params *encode = &state->encode;
+	struct v4l2_h264_enc_rbsp *rbsp = &enc->rbsp;
+	u8 primary_pic_type;
+	int ret;
+
+	/* Return if no update is needed or if hardware generates the unit. */
+	if (!(enc->rbsp_update & rbsp_update) || enc->flags & hw_flag)
+		return 0;
+
+	if (enc->rbsp_update & V4L2_H264_ENC_RBSP_UPDATE_START_CODE) {
+		ret = v4l2_h264_enc_rbsp_start_code(rbsp);
+		if (ret)
+			return ret;
+	}
+
+	if (rbsp_update == V4L2_H264_ENC_RBSP_UPDATE_AUD) {
+		if (enc->flags & V4L2_H264_ENC_FLAG_INTER_BIPRED &&
+		    enc->flags & V4L2_H264_ENC_FLAG_INTER_PRED)
+			primary_pic_type = V4L2_H264_PRIMARY_PIC_TYPE_IPB;
+		else if (enc->flags & V4L2_H264_ENC_FLAG_INTER_PRED)
+			primary_pic_type = V4L2_H264_PRIMARY_PIC_TYPE_IP;
+		else
+			primary_pic_type = V4L2_H264_PRIMARY_PIC_TYPE_I;
+	}
+
+	if (rbsp_update == V4L2_H264_ENC_RBSP_UPDATE_AUD)
+		return v4l2_h264_enc_rbsp_aud(rbsp, primary_pic_type);
+	else if (rbsp_update == V4L2_H264_ENC_RBSP_UPDATE_SPS)
+		return v4l2_h264_enc_rbsp_sps(rbsp, sps, sps_video);
+	else if (rbsp_update == V4L2_H264_ENC_RBSP_UPDATE_PPS)
+		return v4l2_h264_enc_rbsp_pps(rbsp, pps);
+	else if (rbsp_update == V4L2_H264_ENC_RBSP_UPDATE_SLICE_HEADER)
+		return v4l2_h264_enc_rbsp_slice_header(rbsp, sps, pps, encode);
+
+	return -EINVAL;
+}
+
+static int rbsp_step(struct v4l2_h264_enc *enc,
+			 struct vb2_v4l2_buffer *buffer)
+{
+	struct v4l2_h264_enc_rbsp *rbsp = &enc->rbsp;
+	void *pointer = vb2_plane_vaddr(&buffer->vb2_buf, 0);
+	unsigned int size = vb2_plane_size(&buffer->vb2_buf, 0);
+	int ret;
+
+	ret = v4l2_h264_enc_rbsp_init(rbsp, pointer, size);
+	if (ret)
+		return ret;
+
+	ret = rbsp_step_unit(enc, V4L2_H264_ENC_RBSP_UPDATE_AUD,
+			     V4L2_H264_ENC_FLAG_HW_AUD);
+	if (ret)
+		return ret;
+
+	ret = rbsp_step_unit(enc, V4L2_H264_ENC_RBSP_UPDATE_SPS,
+			     V4L2_H264_ENC_FLAG_HW_SPS);
+	if (ret)
+		return ret;
+
+	ret = rbsp_step_unit(enc, V4L2_H264_ENC_RBSP_UPDATE_PPS,
+			     V4L2_H264_ENC_FLAG_HW_PPS);
+	if (ret)
+		return ret;
+
+	ret = rbsp_step_unit(enc, V4L2_H264_ENC_RBSP_UPDATE_SLICE_HEADER,
+			     V4L2_H264_ENC_FLAG_HW_SLICE_HEADER);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 int v4l2_h264_enc_step(struct v4l2_h264_enc *enc,
 		       struct vb2_v4l2_buffer *buffer)
 {
@@ -529,7 +674,15 @@ int v4l2_h264_enc_step(struct v4l2_h264_enc *enc,
 	if (ret)
 		return ret;
 
+	ret = rbsp_update(enc);
+	if (ret)
+		return ret;
+
 	ret = state_commit(enc);
+	if (ret)
+		return ret;
+
+	ret = rbsp_step(enc, buffer);
 	if (ret)
 		return ret;
 

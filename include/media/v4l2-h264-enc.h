@@ -10,6 +10,7 @@
 
 #include <linux/v4l2-controls.h>
 #include <linux/videodev2.h>
+#include <media/v4l2-h264-enc-rbsp.h>
 #include <media/videobuf2-v4l2.h>
 
 #define V4L2_H264_ENC_MB_UNIT	16
@@ -55,6 +56,7 @@ struct v4l2_h264_enc_ops {
 
 struct v4l2_h264_enc {
 	const struct v4l2_h264_enc_ops *ops;
+	const struct v4l2_h264_enc_rbsp_ops *rbsp_ops;
 	void *private_data;
 
 	struct v4l2_pix_format *format;
@@ -65,6 +67,9 @@ struct v4l2_h264_enc {
 	struct v4l2_h264_enc_state state_active;
 	struct v4l2_h264_enc_state state_next;
 	unsigned int state_serial;
+
+	struct v4l2_h264_enc_rbsp rbsp;
+	unsigned int rbsp_update;
 
 	unsigned int flags;
 };
