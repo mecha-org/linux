@@ -398,6 +398,9 @@ void v4l2_ctrl_type_op_log(const struct v4l2_ctrl *ctrl)
 	case V4L2_CTRL_TYPE_H264_PRED_WEIGHTS:
 		pr_cont("H264_PRED_WEIGHTS");
 		break;
+	case V4L2_CTRL_TYPE_H264_ENCODE_PARAMS:
+		pr_cont("H264_ENCODE_PARAMS");
+		break;
 	case V4L2_CTRL_TYPE_FWHT_PARAMS:
 		pr_cont("FWHT_PARAMS");
 		break;
@@ -999,6 +1002,7 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
 	struct v4l2_ctrl_h264_decode_params *p_h264_dec_params;
 	struct v4l2_ctrl_hevc_ext_sps_lt_rps *p_hevc_lt_rps;
 	struct v4l2_ctrl_hevc_ext_sps_st_rps *p_hevc_st_rps;
+	struct v4l2_ctrl_h264_encode_params *p_h264_enc_params;
 	struct v4l2_ctrl_hevc_sps *p_hevc_sps;
 	struct v4l2_ctrl_hevc_pps *p_hevc_pps;
 	struct v4l2_ctrl_hevc_slice_params *p_hevc_slice_params;
@@ -1220,6 +1224,61 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
 			zero_reserved(*dpb_entry);
 		}
 		zero_reserved(*p_h264_dec_params);
+		break;
+
+	case V4L2_CTRL_TYPE_H264_ENCODE_PARAMS:
+		p_h264_enc_params = p;
+
+		if (p_h264_enc_params->slice_type != V4L2_H264_SLICE_TYPE_B)
+			p_h264_enc_params->flags &=
+				~V4L2_H264_ENCODE_FLAG_DIRECT_SPATIAL_MV_PRED;
+		if (!(p_h264_enc_params->flags & V4L2_H264_ENCODE_FLAG_IDR_PIC) ||
+		    !p_h264_enc_params->nal_ref_idc)
+			p_h264_enc_params->flags &=
+				~V4L2_H264_ENCODE_FLAG_LONG_TERM_REFERENCE;
+
+		if (p_h264_enc_params->flags & V4L2_H264_ENCODE_FLAG_IDR_PIC &&
+		    p_h264_enc_params->slice_type != V4L2_H264_SLICE_TYPE_I)
+			return -EINVAL;
+		if (p_h264_enc_params->colour_plane_id > 2)
+			return -EINVAL;
+		if (p_h264_enc_params->cabac_init_idc > 2)
+			return -EINVAL;
+		if (p_h264_enc_params->disable_deblocking_filter_idc > 2)
+			return -EINVAL;
+		if (p_h264_enc_params->slice_alpha_c0_offset_div2 < -6 ||
+		    p_h264_enc_params->slice_alpha_c0_offset_div2 > 6)
+			return -EINVAL;
+		if (p_h264_enc_params->slice_beta_offset_div2 < -6 ||
+		    p_h264_enc_params->slice_beta_offset_div2 > 6)
+			return -EINVAL;
+
+		if (p_h264_enc_params->slice_type == V4L2_H264_SLICE_TYPE_I ||
+		    p_h264_enc_params->slice_type == V4L2_H264_SLICE_TYPE_SI)
+			p_h264_enc_params->num_ref_idx_l0_active_minus1 = 0;
+		if (p_h264_enc_params->slice_type != V4L2_H264_SLICE_TYPE_B)
+			p_h264_enc_params->num_ref_idx_l1_active_minus1 = 0;
+
+		if (p_h264_enc_params->flags & V4L2_H264_ENCODE_FLAG_IDR_PIC) {
+			p_h264_enc_params->frame_num = 0;
+			p_h264_enc_params->pic_order_cnt_lsb = 0;
+			p_h264_enc_params->delta_pic_order_cnt_bottom = 0;
+			p_h264_enc_params->delta_pic_order_cnt0 = 0;
+			p_h264_enc_params->delta_pic_order_cnt1 = 0;
+		} else {
+			p_h264_enc_params->idr_pic_id = 0;
+		}
+
+		if (p_h264_enc_params->num_ref_idx_l0_active_minus1 >
+		    (V4L2_H264_REF_LIST_LEN - 1))
+			return -EINVAL;
+		if (p_h264_enc_params->num_ref_idx_l1_active_minus1 >
+		    (V4L2_H264_REF_LIST_LEN - 1))
+			return -EINVAL;
+		memset(&p_h264_enc_params->reserved0, 0,
+		       sizeof(p_h264_enc_params->reserved0));
+		memset(&p_h264_enc_params->reserved1, 0,
+		       sizeof(p_h264_enc_params->reserved1));
 		break;
 
 	case V4L2_CTRL_TYPE_VP8_FRAME:
@@ -2098,6 +2157,9 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
 		break;
 	case V4L2_CTRL_TYPE_H264_PRED_WEIGHTS:
 		elem_size = sizeof(struct v4l2_ctrl_h264_pred_weights);
+		break;
+	case V4L2_CTRL_TYPE_H264_ENCODE_PARAMS:
+		elem_size = sizeof(struct v4l2_ctrl_h264_encode_params);
 		break;
 	case V4L2_CTRL_TYPE_VP8_FRAME:
 		elem_size = sizeof(struct v4l2_ctrl_vp8_frame);
