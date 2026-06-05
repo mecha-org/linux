@@ -52,6 +52,8 @@ struct dc_crtc {
 	struct dc_db *db;
 	/** @fg: framegen */
 	struct dc_fg *fg;
+	/** @is_imx95: DC is i.MX95 (primary framegen channel, no safety stream) */
+	bool is_imx95;
 	/**
 	 * @irq_dec_framecomplete:
 	 *
