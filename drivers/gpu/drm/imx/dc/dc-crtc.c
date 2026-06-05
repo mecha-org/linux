@@ -7,6 +7,7 @@
 #include <linux/container_of.h>
 #include <linux/interrupt.h>
 #include <linux/irqreturn.h>
+#include <linux/of.h>
 #include <linux/pm_runtime.h>
 #include <linux/spinlock.h>
 
@@ -65,6 +66,14 @@ do {									\
 	if (dc_fg_wait_for_secondary_syncup(fg))			\
 		dc_crtc_err(crtc,					\
 			"%s: FrameGen secondary channel isn't syncup\n",\
+							__func__);	\
+} while (0)
+
+#define DC_CRTC_WAIT_FOR_FRAMEGEN_PRIMARY_SYNCUP(fg)			\
+do {									\
+	if (dc_fg_wait_for_primary_syncup(fg))				\
+		dc_crtc_err(crtc,					\
+			"%s: FrameGen primary channel isn't syncup\n",	\
 							__func__);	\
 } while (0)
 
@@ -250,19 +259,24 @@ dc_crtc_atomic_enable(struct drm_crtc *crtc, struct drm_atomic_commit *state)
 
 	enable_irq(dc_crtc->irq_dec_shdload);
 	enable_irq(dc_crtc->irq_ed_cont_shdload);
-	enable_irq(dc_crtc->irq_ed_safe_shdload);
+	if (!dc_crtc->is_imx95)
+		enable_irq(dc_crtc->irq_ed_safe_shdload);
 
 	dc_fg_cfg_videomode(dc_crtc->fg, adj);
 
 	dc_cf_framedimensions(dc_crtc->cf_cont,
 			      adj->crtc_hdisplay, adj->crtc_vdisplay);
-	dc_cf_framedimensions(dc_crtc->cf_safe,
-			      adj->crtc_hdisplay, adj->crtc_vdisplay);
 
-	/* constframe in safety stream shows blue frame */
-	dc_cf_constantcolor_blue(dc_crtc->cf_safe);
-	cf_link = dc_cf_get_link_id(dc_crtc->cf_safe);
-	dc_ed_pec_src_sel(dc_crtc->ed_safe, cf_link);
+	/* i.MX95 has no safety stream; its ExtDst cannot take a ConstFrame */
+	if (!dc_crtc->is_imx95) {
+		dc_cf_framedimensions(dc_crtc->cf_safe,
+				      adj->crtc_hdisplay, adj->crtc_vdisplay);
+
+		/* constframe in safety stream shows blue frame */
+		dc_cf_constantcolor_blue(dc_crtc->cf_safe);
+		cf_link = dc_cf_get_link_id(dc_crtc->cf_safe);
+		dc_ed_pec_src_sel(dc_crtc->ed_safe, cf_link);
+	}
 
 	/* show CRTC background if no plane is enabled */
 	if (new_crtc_state->plane_mask == 0) {
@@ -275,22 +289,30 @@ dc_crtc_atomic_enable(struct drm_crtc *crtc, struct drm_atomic_commit *state)
 
 	dc_fg_enable_clock(dc_crtc->fg);
 	dc_ed_pec_sync_trigger(dc_crtc->ed_cont);
-	dc_ed_pec_sync_trigger(dc_crtc->ed_safe);
+	if (!dc_crtc->is_imx95)
+		dc_ed_pec_sync_trigger(dc_crtc->ed_safe);
 	dc_db_shdtokgen(dc_crtc->db);
 	dc_fg_shdtokgen(dc_crtc->fg);
 	dc_fg_enable(dc_crtc->fg);
 
-	DC_CRTC_WAIT_FOR_COMPLETION_TIMEOUT(ed_safe_shdload_done);
+	if (!dc_crtc->is_imx95)
+		DC_CRTC_WAIT_FOR_COMPLETION_TIMEOUT(ed_safe_shdload_done);
 	DC_CRTC_WAIT_FOR_COMPLETION_TIMEOUT(ed_cont_shdload_done);
 	DC_CRTC_WAIT_FOR_COMPLETION_TIMEOUT(dec_shdload_done);
 
-	disable_irq(dc_crtc->irq_ed_safe_shdload);
+	if (!dc_crtc->is_imx95)
+		disable_irq(dc_crtc->irq_ed_safe_shdload);
 	disable_irq(dc_crtc->irq_ed_cont_shdload);
 	disable_irq(dc_crtc->irq_dec_shdload);
 
-	DC_CRTC_WAIT_FOR_FRAMEGEN_SECONDARY_SYNCUP(dc_crtc->fg);
-
-	DC_CRTC_CHECK_FRAMEGEN_FIFO(dc_crtc->fg);
+	if (dc_crtc->is_imx95) {
+		DC_CRTC_WAIT_FOR_FRAMEGEN_PRIMARY_SYNCUP(dc_crtc->fg);
+		/* ignore the initial empty primary pixel FIFO, just clear it */
+		dc_fg_primary_clear_channel_status(dc_crtc->fg);
+	} else {
+		DC_CRTC_WAIT_FOR_FRAMEGEN_SECONDARY_SYNCUP(dc_crtc->fg);
+		DC_CRTC_CHECK_FRAMEGEN_FIFO(dc_crtc->fg);
+	}
 
 	drm_dev_exit(idx);
 
@@ -521,6 +543,8 @@ int dc_crtc_init(struct dc_drm_device *dc_drm, int crtc_index)
 	dc_crtc->ed_safe = pe->ed_safe[crtc_index];
 	dc_crtc->fg = de->fg;
 	dc_crtc->db = de->db;
+	dc_crtc->is_imx95 = of_device_is_compatible(dc_drm->base.dev->of_node,
+						    "fsl,imx95-dc");
 
 	dc_crtc->irq_dec_framecomplete = de->irq_framecomplete;
 	dc_crtc->irq_dec_seqcomplete = de->irq_seqcomplete;
