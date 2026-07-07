@@ -42,9 +42,9 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-          git config --global --add safe.directory '*'    
+          git config --global user.email "dhruveshb@mechasystems.com"
+          git config --global user.name "Dhruvesh Baria"
+          git config --global --add safe.directory '*'
       - name: Build SRPM
         run: |
           mkdir -p dist
