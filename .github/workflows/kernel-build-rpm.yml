@@ -23,12 +23,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config --global user.email "dhruveshb@mechasystems.com"
-          git config --global user.name "Dhruvesh Baria"
-          git config --global --add safe.directory '*'
-
       - name: Build SRPM
         run: |
           mkdir -p dist
