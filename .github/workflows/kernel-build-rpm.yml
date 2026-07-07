@@ -38,7 +38,35 @@ jobs:
           fetch-depth: 0
       - name: Install build dependencies
         run: |
-          dnf -y install git make gcc flex bison bzip2 dwarves xz rpm-build python3-pyyaml rust rust-src bindgen rustfmt
+          dnf -y install \
+            bc \
+            bindgen \
+            bison \
+            bzip2 \
+            dwarves \
+            elfutils-devel \
+            elfutils-libelf-devel \
+            findutils \
+            flex \
+            gcc \
+            gh \
+            git \
+            hostname \
+            make \
+            openssl \
+            openssl-devel \
+            perl \
+            python3-pyyaml \
+            rpm-build \
+            rpm-build-libs \
+            rpmdevtools \
+            rpm-sign \
+            rsync \
+            rust \
+            rustfmt \
+            rust-src \
+            tar \
+            xz
 
       - name: Configure Git
         run: |
