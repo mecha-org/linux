@@ -23,56 +23,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies
-        run: |
-          dnf install -y \
-            gcc \
-            make \
-            bison \
-            flex \
-            openssl-devel \
-            elfutils-libelf-devel \
-            elfutils-devel \
-            bc \
-            rsync \
-            rpm-build \
-            git \
-            findutils \
-            hostname \
-            tar \
-            xz \
-            python3 \
-            perl \
-            openssl \
-            dwarves \
-            gh
-
       - name: Configure Git
         run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
+          git config --global user.email "dhruveshb@mechasystems.com"
+          git config --global user.name "Dhruvesh Baria"
           git config --global --add safe.directory '*'
 
-      - name: Configure Kernel
+      - name: Build SRPM
         run: |
-          cp arch/arm64/configs/mecha_v8_defconfig .config
-
-      - name: Build Kernel
-        run: |
-          make -j$(nproc)
-
-      - name: Packaging as RPM
-        run: |
-          # Packaging the build into an RPM package
-          # Ensure uncompressed kernel image is used
-          make KBUILD_IMAGE=arch/arm64/boot/Image binrpm-pkg -j$(nproc)
+          mkdir -p dist
+          make -f .copr/Makefile srpm outdir="$PWD/dist"
 
       - name: Consolidate Artifacts
         if: always()
         run: |
           mkdir -p dist
-          find rpmbuild/RPMS -name "*.rpm" -exec cp {} dist/ \;
-          find rpmbuild/SRPMS -name "*.rpm" -exec cp {} dist/ \;
+          find dist -maxdepth 1 -type f -name "*.src.rpm" -exec cp {} dist/ \;
 
       - name: Upload RPM Artifacts
         if: always()
@@ -101,14 +67,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gh
 
+      - name: Generate Release Checksums
+        run: |
+          cd ./dist
+          set -- *.rpm
+          if [ ! -e "$1" ]; then
+            echo "No RPM artifacts found in ./dist"
+            exit 1
+          fi
+
+          sha256sum *.rpm > SHA256SUMS
+          for rpm in *.rpm; do
+            sha256sum "$rpm" > "$rpm.sha256"
+          done
+
       - name: Create/Update Rolling Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          set -- ./dist/*.rpm
+          set -- ./dist/*.rpm ./dist/*.sha256 ./dist/SHA256SUMS
           if [ ! -e "$1" ]; then
-            echo "No RPM artifacts found in ./dist"
+            echo "No release artifacts found in ./dist"
             exit 1
           fi
 
