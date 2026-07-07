@@ -45,6 +45,17 @@ jobs:
           git config --global user.email "dhruveshb@mechasystems.com"
           git config --global user.name "Dhruvesh Baria"
           git config --global --add safe.directory '*'
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Ensure Git repository is usable
+        run: |
+          if ! git -C "$GITHUB_WORKSPACE" rev-parse --verify HEAD >/dev/null 2>&1; then
+            git -C "$GITHUB_WORKSPACE" init
+            git -C "$GITHUB_WORKSPACE" config user.email "dhruveshb@mechasystems.com"
+            git -C "$GITHUB_WORKSPACE" config user.name "Dhruvesh Baria"
+            git -C "$GITHUB_WORKSPACE" add .
+            git -C "$GITHUB_WORKSPACE" commit -m "ci-workflow-build" --no-gpg-sign || true
+          fi
 
       - name: Build SRPM
         run: |

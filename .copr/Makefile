@@ -1,8 +1,12 @@
 srpm:
 	dnf -y install git make gcc flex bison bzip2 dwarves xz rpm-build python3-pyyaml rust rust-src bindgen rustfmt
+	@if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+		git init >/dev/null 2>&1; \
+	fi
 	@if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
 		git config user.email "dhruveshb@mechasystems.com"; \
 		git config user.name "Dhruvesh Baria"; \
+		git config --global --add safe.directory "$$(pwd)" >/dev/null 2>&1 || true; \
 		.copr/deepen_gittree.sh; \
 	fi
 
