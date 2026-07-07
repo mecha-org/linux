@@ -38,17 +38,38 @@ jobs:
           fetch-depth: 0
       - name: Install build dependencies
         run: |
-          dnf install -y make gcc rpm-build git
+          dnf -y install git make gcc flex bison bzip2 dwarves xz rpm-build python3-pyyaml rust rust-src bindgen rustfmt
 
       - name: Configure Git
         run: |
           git config --global user.email "dhruveshb@mechasystems.com"
           git config --global user.name "Dhruvesh Baria"
           git config --global --add safe.directory '*'
+
+      - name: Prepare source tree
+        run: |
+          if [ -f .git/shallow ] && ! grep -q '^SUBLEVEL = 0' Makefile; then
+            echo "This is a shallow clone; unshallowing to avoid oddities using."
+            sleep 10
+            git fetch --unshallow || :
+          fi
+
+          if [ ! -f .config ]; then
+            cp arch/arm64/configs/mecha_v8_defconfig .config
+          fi
+
       - name: Build SRPM
         run: |
           mkdir -p dist
-          make -f .copr/Makefile srpm outdir="$PWD/dist"
+          make NO_CONFIGCHECKS=1 DIST=.fc44 UPSTREAMBUILD_GIT_ONLY=0 dist-srpm
+
+          srpm_path=$(find . -type f -name '*.src.rpm' 2>/dev/null | head -n 1)
+          if [ -n "$srpm_path" ]; then
+            cp "$srpm_path" "$PWD/dist/"
+          else
+            echo "No source RPM found after dist-srpm"
+            exit 1
+          fi
 
       - name: Consolidate Artifacts
         if: always()
