@@ -2,9 +2,23 @@ name: Build and Release Kernel (RPM)
 
 on:
   push:
-    branches: ["main", "imx/lf-6.12.20", "pre-release*", "mecha-v7.0-wip", "mecha-7.0-wip*"]
+    branches:
+      [
+        "main",
+        "imx/lf-6.12.20",
+        "pre-release*",
+        "mecha-v7.0-wip",
+        "mecha-7.0-wip*",
+      ]
   pull_request:
-    branches: ["main", "imx/lf-6.12.20", "pre-release*", "mecha-v7.0-wip", "mecha-7.0-wip*"]
+    branches:
+      [
+        "main",
+        "imx/lf-6.12.20",
+        "pre-release*",
+        "mecha-v7.0-wip",
+        "mecha-7.0-wip*",
+      ]
   workflow_dispatch:
 
 jobs:
@@ -22,7 +36,9 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
+      - name: Install build dependencies
+        run: |
+          dnf install -y make gcc rpm-build git
       - name: Build SRPM
         run: |
           mkdir -p dist
