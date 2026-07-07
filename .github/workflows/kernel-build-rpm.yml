@@ -53,15 +53,15 @@ jobs:
 
       - name: Rebuild from SRPM
         run: |
-          mkdir -p srpm-build
-          cd srpm-build
           srpm_path=$(find "$GITHUB_WORKSPACE/dist" -type f -name '*.src.rpm' | head -n 1)
           if [ -z "$srpm_path" ]; then
             echo "No source RPM found in dist"
             exit 1
           fi
 
-          dnf -y install "$srpm_path"
+          rpmbuild --rebuild "$srpm_path"
+          find "$HOME/rpmbuild/RPMS" -type f -name '*.rpm' -exec cp {} "$GITHUB_WORKSPACE/dist/" \;
+          find "$HOME/rpmbuild/SRPMS" -type f -name '*.rpm' -exec cp {} "$GITHUB_WORKSPACE/dist/" \;
 
       - name: Consolidate Artifacts
         if: always()

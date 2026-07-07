@@ -7,16 +7,18 @@ srpm:
 	fi
 
 	@if [ ! -f .config ]; then \
-		cp arch/arm64/configs/mecha_v8_defconfig .config; \
+		make ARCH=arm64 mecha_v8_defconfig; \
+	else \
+		make ARCH=arm64 olddefconfig; \
 	fi
 
-	make NO_CONFIGCHECKS=1 DIST=.fc44 UPSTREAMBUILD_GIT_ONLY=0 dist-srpm
+	make ARCH=arm64 NO_CONFIGCHECKS=1 DIST=.fc44 UPSTREAMBUILD_GIT_ONLY=0 srcrpm-pkg
 
 	mkdir -p "$(outdir)"
-	@srpm_path=$$(find . -type f -name '*.src.rpm' ! -path './$(outdir)/*' 2>/dev/null | head -n 1); \
+	@srpm_path=$$(find rpmbuild/SRPMS redhat/rpm/SRPMS -type f -name '*.src.rpm' 2>/dev/null | head -n 1); \
 	if [ -n "$$srpm_path" ]; then \
 		cp "$$srpm_path" "$(outdir)/"; \
 	else \
-		echo "No source RPM found after dist-srpm"; \
+		echo "No source RPM found after srcrpm-pkg"; \
 		exit 1; \
 	fi
