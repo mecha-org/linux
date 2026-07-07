@@ -39,6 +39,12 @@ jobs:
       - name: Install build dependencies
         run: |
           dnf install -y make gcc rpm-build git
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git config --global --add safe.directory '*'    
       - name: Build SRPM
         run: |
           mkdir -p dist

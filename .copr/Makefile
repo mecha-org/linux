@@ -1,7 +1,5 @@
 srpm:
 	dnf -y install git make gcc flex bison bzip2 dwarves xz rpm-build python3-pyyaml rust rust-src bindgen rustfmt
-	git config user.email "dhruveshb@mechasystems.com"
-	git config user.name "Dhruvesh Baria"
 	.copr/deepen_gittree.sh
 
 	# set UPSTREAMBUILD_GIT_ONLY=0 to include date in %release when building snapshots
