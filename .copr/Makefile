@@ -1,8 +1,10 @@
 srpm:
 	dnf -y install git make gcc flex bison bzip2 dwarves xz rpm-build python3-pyyaml rust rust-src bindgen rustfmt
-	git config user.email "dhruveshb@mechasystems.com"
-	git config user.name "Dhruvesh Baria"
-	.copr/deepen_gittree.sh
+	@if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
+		git config user.email "dhruveshb@mechasystems.com"; \
+		git config user.name "Dhruvesh Baria"; \
+		.copr/deepen_gittree.sh; \
+	fi
 
 	# ensure a kernel config exists before building the SRPM
 	@if [ ! -f .config ]; then \
