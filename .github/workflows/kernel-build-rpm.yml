@@ -1,0 +1,173 @@
+name: Build and Release Kernel (RPM)
+
+on:
+  push:
+    branches:
+      [
+        "main",
+        "imx/lf-6.12.20",
+        "pre-release*",
+        "mecha-v7.0-wip",
+        "mecha-7.0-wip*",
+      ]
+  pull_request:
+    branches:
+      [
+        "main",
+        "imx/lf-6.12.20",
+        "pre-release*",
+        "mecha-v7.0-wip",
+        "mecha-7.0-wip*",
+      ]
+  workflow_dispatch:
+
+jobs:
+  build-rpm:
+    runs-on: ubuntu-24.04-arm
+
+    permissions:
+      contents: write
+
+    container:
+      image: fedora:44
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install build dependencies
+        run: |
+          dnf -y install \
+            bc \
+            bindgen \
+            bison \
+            bzip2 \
+            dwarves \
+            elfutils-devel \
+            elfutils-libelf-devel \
+            findutils \
+            flex \
+            gcc \
+            gh \
+            git \
+            hostname \
+            make \
+            openssl \
+            openssl-devel \
+            perl \
+            python3-pyyaml \
+            rpm-build \
+            rpm-build-libs \
+            rpmdevtools \
+            rpm-sign \
+            rsync \
+            rust \
+            rustfmt \
+            rust-src \
+            tar \
+            xz
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "dhruveshb@mechasystems.com"
+          git config --global user.name "Dhruvesh Baria"
+          git config --global --add safe.directory '*'
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Ensure Git repository is usable
+        run: |
+          if ! git -C "$GITHUB_WORKSPACE" rev-parse --verify HEAD >/dev/null 2>&1; then
+            git -C "$GITHUB_WORKSPACE" init
+            git -C "$GITHUB_WORKSPACE" config user.email "dhruveshb@mechasystems.com"
+            git -C "$GITHUB_WORKSPACE" config user.name "Dhruvesh Baria"
+            git -C "$GITHUB_WORKSPACE" add .
+            git -C "$GITHUB_WORKSPACE" commit -m "ci-workflow-build" --no-gpg-sign || true
+          fi
+
+      - name: Build SRPM
+        run: |
+          mkdir -p dist
+          make -f .copr/Makefile srpm outdir="$PWD/dist"
+
+      - name: Rebuild from SRPM
+        run: |
+          srpm_path=$(find "$GITHUB_WORKSPACE/dist" -type f -name '*.src.rpm' | head -n 1)
+          if [ -z "$srpm_path" ]; then
+            echo "No source RPM found in dist"
+            exit 1
+          fi
+
+          rpmbuild --rebuild "$srpm_path"
+          find "$HOME/rpmbuild/RPMS" -type f -name '*.rpm' -exec cp {} "$GITHUB_WORKSPACE/dist/" \;
+          find "$HOME/rpmbuild/SRPMS" -type f -name '*.rpm' -exec cp {} "$GITHUB_WORKSPACE/dist/" \;
+
+      - name: Consolidate Artifacts
+        if: always()
+        run: |
+          mkdir -p dist
+          find dist -maxdepth 1 -type f -name "*.src.rpm" -exec cp {} dist/ \;
+
+      - name: Upload RPM Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-packages-rpm
+          path: ./dist/*.rpm
+
+  release-rpm:
+    if: github.event_name != 'pull_request'
+    needs: build-rpm
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download RPM Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: kernel-packages-rpm
+          path: ./dist
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Generate Release Checksums
+        run: |
+          cd ./dist
+          set -- *.rpm
+          if [ ! -e "$1" ]; then
+            echo "No RPM artifacts found in ./dist"
+            exit 1
+          fi
+
+          sha256sum *.rpm > SHA256SUMS
+          for rpm in *.rpm; do
+            sha256sum "$rpm" > "$rpm.sha256"
+          done
+
+      - name: Create/Update Rolling Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -- ./dist/*.rpm ./dist/*.sha256 ./dist/SHA256SUMS
+          if [ ! -e "$1" ]; then
+            echo "No release artifacts found in ./dist"
+            exit 1
+          fi
+
+          gh release delete kernel-rpm-latest --yes || true
+          gh api \
+            --method DELETE \
+            "repos/${GITHUB_REPOSITORY}/git/refs/tags/kernel-rpm-latest" \
+            || true
+
+          gh release create kernel-rpm-latest "$@" \
+            --target "${GITHUB_SHA}" \
+            --title "Latest Kernel RPM Build" \
+            --notes "Automated rolling release for latest kernel RPM builds." \
+            --prerelease
