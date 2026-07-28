@@ -42,3 +42,7 @@ AUTOMOTIVE_MINOR = 99
 #
 # Set DERIVATIVE_STREAM to "yes" to enable derivative kernel versioning.
 DERIVATIVE_BUILD = 0
+
+# Kernel variant extra version suffix
+VARIANTSTREAM = .mecha
+
