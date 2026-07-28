@@ -12,7 +12,7 @@ fi
 
 # The SPECRELEASE variable uses the SPECBUILDID variable which is
 # defined above.  IOW, don't remove SPECBUILDID ;)
-SPECRELEASE="${UPSTREAMBUILD}""${BUILD}""%{?buildid}%{?dist}"
+SPECRELEASE="${UPSTREAMBUILD}""${BUILD}""${VARIANTSTREAM}""%{?buildid}%{?dist}"
 
 EXCLUDE_FILES=":(exclude,top).get_maintainer.conf \
 		:(exclude,top).gitattributes \

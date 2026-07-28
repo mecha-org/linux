@@ -109,7 +109,7 @@ NO_CONFIGCHECKS ?=
 # the kernel src.rpm, which will contain shas and commits not upstream. The
 # value of PATCHLIST_URL in this case should point to the git repository where
 # the commits are located, and will be added as a prefix to the shas listed.
-PATCHLIST_URL ?= https://gitlab.com/cki-project/kernel-ark/-/commit
+PATCHLIST_URL ?= "https://github.com/mecha-org/linux/commit/"
 
 # RELEASED_KERNEL swaps between the pre-release secureboot keys and
 # the release one, for vmlinux signing. It also controls whether Fedora
