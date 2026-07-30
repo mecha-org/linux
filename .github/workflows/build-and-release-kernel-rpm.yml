@@ -1,0 +1,104 @@
+name: Build and Release Kernel (RPM)
+
+on:
+  push:
+    branches: ["fedora*"]
+  pull_request:
+    branches: ["fedora*"]
+  workflow_dispatch:
+
+jobs:
+  build-rpm:
+    runs-on: ubuntu-24.04-arm
+
+    permissions:
+      contents: write
+
+    container:
+      image: fedora:44
+
+    env:
+      # The redhat/ build system (kernel-ark) versions Fedora builds off a
+      # "MARKER" upstream git tag and requires an UPSTREAM_BRANCH to exist
+      # for its snapshot versioning. Neither exists in this fork's history,
+      # so we pin both to build straight off the checked-out HEAD instead.
+      DIST: ".fc44"
+      VERSION_ON_UPSTREAM: "0"
+      MARKER: "HEAD"
+      # Defaults to ".test" if left unset. Empty here gives a clean
+      # "<build>.mecha<dist>" release; swap in a run/sha suffix if you want
+      # per-build NVRs instead.
+      DISTLOCALVERSION: ""
+      # Keep the binary build scoped to the base kernel + modules: skip
+      # perf/tools/doc/debuginfo/selftests and the kABI stablelist checks.
+      WITHOUT_FLAGS: >-
+        --without perf --without libperf --without tools --without doc
+        --without debuginfo --without debug --without selftests
+        --without kernel_abi_stablelists --without kabichk
+
+    steps:
+      # fedora:44 ships without git. actions/checkout needs it present
+      # *before* it runs, or it silently falls back to a tarball download
+      # with no .git directory -- which breaks every git call in redhat/.
+      - name: Install base build dependencies
+        run: |
+          dnf -y install \
+            git make gcc flex bison bzip2 rpm-build \
+            python3-pyyaml findutils diffutils gawk m4 \
+            perl-interpreter tar xz rsync
+
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global user.email "ci@mechasystems.com"
+          git config --global user.name "Mecha CI"
+
+      - name: Render kernel.spec
+        run: |
+          make DIST="$DIST" VERSION_ON_UPSTREAM="$VERSION_ON_UPSTREAM" MARKER="$MARKER" \
+            DISTLOCALVERSION="$DISTLOCALVERSION" dist-spec
+
+      - name: Install kernel BuildRequires
+        run: |
+          # Query BuildRequires scoped to the same --without flags used for
+          # the actual build, then install them. bindgen/hmaccalc are listed
+          # under their upstream names in the spec but ship under different
+          # names in Fedora's repos.
+          buildreqs=$(rpmspec -q --buildrequires $WITHOUT_FLAGS redhat/rpm/SOURCES/kernel.spec \
+            | sed -e 's/^bindgen$/bindgen-cli/' -e 's/^hmaccalc$/libkcapi-hmaccalc/' \
+            | awk '{print $1}')
+          dnf -y install $buildreqs
+
+      - name: Build source RPM
+        run: |
+          # NO_CONFIGCHECKS bypasses redhat/configs' strict "every visible
+          # Kconfig symbol must be set" gate, which currently fails on
+          # CONFIG_WLAN_VENDOR_NXP/CONFIG_NXPWIFI/CONFIG_DRM_PANEL_DDIC_CH13726A
+          # across every arch/flavor -- those config fragments haven't been
+          # updated for the NXP wifi driver yet. Remove this once fixed.
+          make DIST="$DIST" VERSION_ON_UPSTREAM="$VERSION_ON_UPSTREAM" MARKER="$MARKER" \
+            DISTLOCALVERSION="$DISTLOCALVERSION" NO_CONFIGCHECKS=1 dist-srpm
+
+      - name: Rebuild binary RPMs from SRPM
+        run: |
+          mkdir -p dist
+          srpm=$(find redhat/rpm/SRPMS -name '*.src.rpm' | head -n1)
+          if [ -z "$srpm" ]; then
+            echo "No source RPM found in redhat/rpm/SRPMS"
+            exit 1
+          fi
+          rpmbuild --rebuild "$srpm" $WITHOUT_FLAGS \
+            --define "_rpmdir $PWD/dist" \
+            --define "_srcrpmdir $PWD/dist"
+
+      - name: Upload RPM artifacts
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: kernel-packages-rpm
+          path: dist/**/*.rpm
