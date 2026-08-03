@@ -10,6 +10,7 @@ on:
 jobs:
   build-rpm:
     runs-on: ubuntu-24.04-arm
+    environment: pre-release
 
     permissions:
       contents: write
@@ -25,16 +26,16 @@ jobs:
       DIST: ".fc44"
       VERSION_ON_UPSTREAM: "0"
       MARKER: "HEAD"
-      # Defaults to ".test" if left unset. Empty here gives a clean
-      # "<build>.mecha<dist>" release; swap in a run/sha suffix if you want
-      # per-build NVRs instead.
-      DISTLOCALVERSION: ""
       # Keep the binary build scoped to the base kernel + modules: skip
       # perf/tools/doc/debuginfo/selftests and the kABI stablelist checks.
       WITHOUT_FLAGS: >-
         --without perf --without libperf --without tools --without doc
         --without debuginfo --without debug --without selftests
         --without kernel_abi_stablelists --without kabichk
+      MECHA_PULP_USERNAME: ${{ secrets.MECHA_PULP_USERNAME }}
+      MECHA_PULP_PASSWORD: ${{ secrets.MECHA_PULP_PASSWORD }}
+      MECHA_PULP_API_URL: ${{ vars.MECHA_PULP_API_URL }}
+      MECHA_PULP_RPMS_REPOSITORY_NAME: ${{ vars.MECHA_PULP_RPMS_REPOSITORY_NAME }}
 
     steps:
       # fedora:44 ships without git. actions/checkout needs it present
@@ -45,7 +46,7 @@ jobs:
           dnf -y install \
             git make gcc flex bison bzip2 rpm-build \
             python3-pyyaml findutils diffutils gawk m4 \
-            perl-interpreter tar xz rsync
+            perl-interpreter tar xz rsync pipx jq
 
       - name: Checkout code
         uses: actions/checkout@v5
@@ -57,6 +58,13 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global user.email "ci@mechasystems.com"
           git config --global user.name "Mecha CI"
+
+      # Every build gets a unique NVR so re-runs and per-commit builds don't
+      # collide in the RPM repo. Leading dot matches redhat/Makefile's own
+      # ".test" fallback format.
+      - name: Set DISTLOCALVERSION
+        run: |
+          echo "DISTLOCALVERSION=.$(date -u '+%Y%m%d%H%M')" >> "$GITHUB_ENV"
 
       - name: Render kernel.spec
         run: |
@@ -102,3 +110,49 @@ jobs:
         with:
           name: kernel-packages-rpm
           path: dist/**/*.rpm
+
+      - name: Setup | Pulp CLI
+        run: |
+          pipx install --force "pulp-cli==0.39.3"
+          pipx inject pulp-cli pulp_rpm
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Pulp CLI
+        run: |
+          set -euo pipefail
+          PULP_API_URL="$(printf '%s' "${MECHA_PULP_API_URL}" | tr -d '[:space:]')"
+          PULP_API_URL="${PULP_API_URL%/}"
+          if [ -z "$PULP_API_URL" ]; then
+            echo "MECHA_PULP_API_URL is empty after trimming whitespace"
+            exit 1
+          fi
+
+          pulp config create \
+            --username "$MECHA_PULP_USERNAME" \
+            --password "$MECHA_PULP_PASSWORD" \
+            --base-url "$PULP_API_URL" \
+            --overwrite
+
+      - name: Publish RPMs to Pulp
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          rpms=(dist/**/*.rpm)
+          if [ "${#rpms[@]}" -eq 0 ]; then
+            echo "No RPMs found in dist/ to publish"
+            exit 1
+          fi
+
+          for rpm in "${rpms[@]}"; do
+            echo "[INFO] Uploading $rpm"
+            pulp rpm content upload --repository="$MECHA_PULP_RPMS_REPOSITORY_NAME" --file="$rpm"
+          done
+
+          PUB_HREF=$(pulp rpm publication create \
+            --repository="$MECHA_PULP_RPMS_REPOSITORY_NAME" | jq -r '.pulp_href')
+
+          pulp rpm distribution update \
+            --name="$MECHA_PULP_RPMS_REPOSITORY_NAME" \
+            --base-path="$MECHA_PULP_RPMS_REPOSITORY_NAME" \
+            --publication="$PUB_HREF"
