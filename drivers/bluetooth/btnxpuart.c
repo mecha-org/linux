@@ -1316,7 +1316,7 @@ static int nxp_set_baudrate_cmd(struct hci_dev *hdev, void *data)
 
 static int nxp_check_boot_sign(struct btnxpuart_dev *nxpdev)
 {
-	serdev_device_set_baudrate(nxpdev->serdev, HCI_NXP_PRI_BAUDRATE);
+	serdev_device_set_baudrate(nxpdev->serdev, HCI_NXP_SEC_BAUDRATE_3M);
 	if (ind_reset_in_progress(nxpdev))
 		serdev_device_set_flow_control(nxpdev->serdev, false);
 	else
@@ -1453,15 +1453,16 @@ static int nxp_setup(struct hci_dev *hdev)
 	char *envp[] = {device_string, event_string, NULL};
 	int err = 0;
 
-	if (nxp_check_boot_sign(nxpdev)) {
-		bt_dev_dbg(hdev, "Need FW Download.");
-		err = nxp_download_firmware(hdev);
-		if (err < 0)
-			return err;
-	} else {
-		bt_dev_info(hdev, "FW already running.");
-		clear_bit(BTNXPUART_FW_DOWNLOADING, &nxpdev->tx_state);
-	}
+	/*
+	 * Firmware is loaded as part of the Wi-Fi/BT combo image over SDIO.
+	 * Do not attempt a separate firmware download over UART.
+	 */
+	err = nxp_check_boot_sign(nxpdev);
+	if (err < 0)
+		return ret;
+
+	bt_dev_info(hdev, "Using externally loaded combo firmware");
+	clear_bit(BTNXPUART_FW_DOWNLOADING, &nxpdev->tx_state);
 
 	snprintf(device_string, 30, "BTNXPUART_DEV=%s", dev_name(&serdev->dev));
 	snprintf(event_string, 50, "BTNXPUART_STATE=FW_READY");
