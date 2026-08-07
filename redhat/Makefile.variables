@@ -64,7 +64,7 @@ DIST ?=
 DISTRO ?=
 
 # This overrides CONFIG_WERROR to 'y' for all arches.  RHEL requires this variable to be set.
-ENABLE_WERROR ?=
+ENABLE_WERROR ?= no
 
 # Pattern to match merge commits whose reachable commits should be excluded from changelog entirely.
 # Example: CHANGELOG_EXCLUDE_REFS_PATTERN = ^Merge tag \S\+ into main
