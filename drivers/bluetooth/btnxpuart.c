@@ -1459,7 +1459,7 @@ static int nxp_setup(struct hci_dev *hdev)
 	 */
 	err = nxp_check_boot_sign(nxpdev);
 	if (err < 0)
-		return ret;
+		return err;
 
 	bt_dev_info(hdev, "Using externally loaded combo firmware");
 	clear_bit(BTNXPUART_FW_DOWNLOADING, &nxpdev->tx_state);
