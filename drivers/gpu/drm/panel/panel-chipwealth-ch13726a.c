@@ -159,6 +159,31 @@ static struct ch13726a_desc thor_bottom_desc = {
 	.bpc = 8,
 };
 
+static const struct drm_display_mode comet_modes[] = {
+	{
+		/* 60Hz */
+		.clock = (1080 + 80 + 80 + 80) *
+			 (1240 + 90 + 90 + 90) * 60 / 1000,
+
+		.hdisplay = 1080,
+		.hsync_start = 1080 + 80,
+		.hsync_end = 1080 + 80 + 80,
+		.htotal = 1080 + 80 + 80 + 80,
+		.vdisplay = 1240,
+		.vsync_start = 1240 + 90,
+		.vsync_end = 1240 + 90 + 90,
+		.vtotal = 1240 + 90 + 90 + 90,
+	},
+};
+
+static const struct ch13726a_desc comet_desc = {
+	.modes = comet_modes,
+	.num_modes = ARRAY_SIZE(comet_modes),
+	.width_mm = 65,
+	.height_mm = 75,
+	.bpc = 8,
+};
+
 static int ch13726a_get_modes(struct drm_panel *panel,
 					struct drm_connector *connector)
 {
@@ -315,6 +340,7 @@ static void ch13726a_remove(struct mipi_dsi_device *dsi)
 
 static const struct of_device_id ch13726a_of_match[] = {
 	{ .compatible = "ayntec,thor-panel-bottom", .data = &thor_bottom_desc },
+	{ .compatible = "mecha,comet", .data = &comet_desc},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, ch13726a_of_match);
