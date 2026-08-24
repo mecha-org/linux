@@ -64,8 +64,8 @@ static int ch13726a_on(struct ch13726a_panel *ctx)
 
 	ctx->dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 
-	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xf0, 0x50);
-	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xb9, 0x00);
+	mipi_dsi_generic_write_seq_multi(&dsi_ctx, MIPI_DCS_WRITE_CONTROL_DISPLAY, MIPI_DCS_NOP);
+	mipi_dsi_generic_write_seq_multi(&dsi_ctx, MIPI_DCS_EXIT_SLEEP_MODE, MIPI_DCS_NOP);
 
 	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
 
@@ -155,6 +155,31 @@ static const struct drm_display_mode thor_bottom_modes[] = {
 static struct ch13726a_desc thor_bottom_desc = {
 	.modes = thor_bottom_modes,
 	.num_modes = ARRAY_SIZE(thor_bottom_modes),
+	.width_mm = 65,
+	.height_mm = 75,
+	.bpc = 8,
+};
+
+static const struct drm_display_mode comet_modes[] = {
+	{
+		/* 60Hz */
+		.clock = 120000,	/* 480 MHz / 4, ~60.2 Hz */
+		.hdisplay = 1080,
+		.hsync_start = 1080 + 80,
+		.hsync_end = 1080 + 80 + 80,
+		.htotal = 1080 + 80 + 80 + 80,
+		.vdisplay = 1240,
+		.vsync_start = 1240 + 90,
+		.vsync_end = 1240 + 90 + 90,
+		.vtotal = 1240 + 90 + 90 + 90,
+		.width_mm = 65,
+		.height_mm = 75,
+	},
+};
+
+static const struct ch13726a_desc comet_desc = {
+	.modes = comet_modes,
+	.num_modes = ARRAY_SIZE(comet_modes),
 	.width_mm = 65,
 	.height_mm = 75,
 	.bpc = 8,
@@ -316,6 +341,7 @@ static void ch13726a_remove(struct mipi_dsi_device *dsi)
 
 static const struct of_device_id ch13726a_of_match[] = {
 	{ .compatible = "ayntec,thor-panel-bottom", .data = &thor_bottom_desc },
+	{ .compatible = "mecha,comet", .data = &comet_desc},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, ch13726a_of_match);
