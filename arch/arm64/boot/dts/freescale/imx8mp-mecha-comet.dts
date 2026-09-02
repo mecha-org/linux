@@ -853,14 +853,10 @@
 	};
 
 	panel@0 {
-		compatible = "ch13726a,rp5";
+		compatible = "mecha,comet";
 		reg = <0>;
 		pinctrl-0 = <&pinctrl_mipi_gpio>;
-		reset-gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;
-		orientation = <0>;
-		rotation = <270>;
-		dsi-lanes = <4>;
-		video-mode = <0>;
+		reset-gpios = <&gpio4 9 GPIO_ACTIVE_LOW>;
 		status = "okay";
 
 		port {
