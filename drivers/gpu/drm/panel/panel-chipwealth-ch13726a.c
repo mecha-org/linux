@@ -94,12 +94,12 @@ static int ch13726a_on(struct ch13726a_panel *ctx)
 	/* Vendor command mode enable */
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xB9, 0x11);
 
-	/* Full-frame update region */
-	mipi_dsi_dcs_set_column_address_multi(&dsi_ctx,
-					      0, 1079);
+	/* Set RGB888 format */
+	mipi_dsi_dcs_set_pixel_format_multi(&dsi_ctx, 0x77);
 
-	mipi_dsi_dcs_set_page_address_multi(&dsi_ctx,
-					    0, 1239);
+	/* Set column and page address as per display resolution */
+	mipi_dsi_dcs_set_column_address_multi(&dsi_ctx, 0x0000, 0x0437);
+	mipi_dsi_dcs_set_page_address_multi(&dsi_ctx, 0x0000, 0x04d7);
 
 	/* Enable TE output  */
     mipi_dsi_dcs_set_tear_on_multi(&dsi_ctx,

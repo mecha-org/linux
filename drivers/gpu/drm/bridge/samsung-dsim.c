@@ -649,6 +649,7 @@ static const struct samsung_dsim_driver_data imx8mm_dsi_driver_data = {
 	.plltmr_reg = 0xa0,
 	.has_legacy_status_reg = 1,
 	.has_clklane_stop = 1,
+	.has_sfrctrl = 1,
 	.clk_data = exynos4_clk_bulk_data,
 	.num_clks = ARRAY_SIZE(exynos4_clk_bulk_data),
 	.max_freq = 2100,
@@ -1208,12 +1209,35 @@ static void samsung_dsim_set_display_enable(struct samsung_dsim *dsi, bool enabl
 	const struct samsung_dsim_driver_data *driver_data = dsi->driver_data;
 	u32 reg;
 
+	dev_info(dsi->dev, "cmd-dbg: set_display_enable(%d) has_sfrctrl=%d mode_flags=%#lx\n",
+		 enable, driver_data->has_sfrctrl, dsi->mode_flags);
+
 	reg = samsung_dsim_read(dsi, DSIM_MDRESOL_REG);
 	if (enable)
 		reg |= DSIM_MAIN_STAND_BY;
 	else
 		reg &= ~DSIM_MAIN_STAND_BY;
 	samsung_dsim_write(dsi, DSIM_MDRESOL_REG, reg);
+
+	if (enable && driver_data->has_sfrctrl) {
+		int i;
+
+		for (i = 0; i < 100; i++) {
+			u32 st = samsung_dsim_read(dsi, DSIM_STATUS_REG);
+
+			if (!(st & 0xf)) {
+				dev_info(dsi->dev,
+					 "cmd-mode: lanes left stop-state after %d ms (STATUS=%08x)\n",
+					 i, st);
+				break;
+			}
+			usleep_range(1000, 1500);
+		}
+		if (i == 100)
+			dev_info(dsi->dev,
+				 "cmd-mode: lanes never left stop-state (STATUS=%08x)\n",
+				 samsung_dsim_read(dsi, DSIM_STATUS_REG));
+	}
 
 	if (driver_data->has_sfrctrl) {
 		reg = samsung_dsim_read(dsi, DSIM_SFRCTRL_REG);
@@ -1672,8 +1696,17 @@ static void samsung_dsim_atomic_enable(struct drm_bridge *bridge,
 {
 	struct samsung_dsim *dsi = bridge_to_dsi(bridge);
 
+	dev_info(dsi->dev, "cmd-dbg: atomic_enable entered\n");
+
 	samsung_dsim_set_display_mode(dsi);
 	samsung_dsim_set_display_enable(dsi, true);
+
+	if (dsi->driver_data->has_sfrctrl && !(dsi->mode_flags & MIPI_DSI_MODE_VIDEO)) {
+		msleep(10);
+		samsung_dsim_set_display_enable(dsi, false);
+		msleep(10);
+		samsung_dsim_set_display_enable(dsi, true);
+	}
 
 	dsi->state |= DSIM_STATE_VIDOUT_AVAILABLE;
 }
