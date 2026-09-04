@@ -52,9 +52,32 @@ static void ch13726a_reset(struct ch13726a_panel *ctx)
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 	usleep_range(10000, 11000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-	usleep_range(10000, 11000);
+	usleep_range(20000, 22000);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
-	usleep_range(10000, 11000);
+	usleep_range(50000, 55000);
+}
+
+static int ch13726a_wait_ready(struct ch13726a_panel *ctx)
+{
+	struct device *dev = &ctx->dsi->dev;
+	int i, ret;
+
+	for (i = 0; i < 20; i++) {
+		u8 power_mode = 0;
+
+		ret = mipi_dsi_dcs_read(ctx->dsi, MIPI_DCS_GET_POWER_MODE,
+					&power_mode, 1);
+		if (ret == 1 && (power_mode & 0x80)) {
+			dev_info(dev,
+				 "panel ready after %d ms (power_mode=0x%02x)\n",
+				 i * 10, power_mode);
+			return 0;
+		}
+		msleep(10);
+	}
+
+	dev_warn(dev, "panel not ready (last read=%d)\n", ret);
+	return -ETIMEDOUT;
 }
 
 static int ch13726a_on(struct ch13726a_panel *ctx)
@@ -120,7 +143,7 @@ static int ch13726a_prepare(struct drm_panel *panel)
 {
 	struct ch13726a_panel *ctx = to_ch13726a_panel(panel);
 	struct device *dev = &ctx->dsi->dev;
-	int ret;
+	int ret, attempt;
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(ch13726a_supplies), ctx->supplies);
 	if (ret < 0) {
@@ -128,19 +151,33 @@ static int ch13726a_prepare(struct drm_panel *panel)
 		return ret;
 	}
 
-	ch13726a_reset(ctx);
+	msleep(80);
 
-	ret = ch13726a_on(ctx);
-	if (ret < 0) {
-		dev_err(dev, "Failed to initialize panel: %d\n", ret);
-		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-		regulator_bulk_disable(ARRAY_SIZE(ch13726a_supplies), ctx->supplies);
-		return ret;
-	}
+	for (attempt = 0; attempt < 3; attempt++) {
+		ch13726a_reset(ctx);
 
-	msleep(28);
+		ret = ch13726a_on(ctx);
+		if (ret < 0) {
+			dev_warn(dev, "panel init attempt %d failed: %d\n",
+				 attempt, ret);
+			msleep(20);
+			continue;
+		}
 
-	return 0;
+		msleep(28);
+
+		if (ch13726a_wait_ready(ctx) == 0)
+			return 0;
+
+		dev_warn(dev, "panel init attempt %d unverified, retrying\n",
+			 attempt);
+		msleep(20);
+ 	}
+
+	dev_err(dev, "panel failed to initialize after retries\n");
+	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+	regulator_bulk_disable(ARRAY_SIZE(ch13726a_supplies), ctx->supplies);
+	return -EIO;
 }
 
 static int ch13726a_unprepare(struct drm_panel *panel)
