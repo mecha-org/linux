@@ -1850,7 +1850,7 @@ static irqreturn_t samsung_dsim_te_irq_handler(int irq, void *dev_id)
 {
 	struct samsung_dsim *dsi = (struct samsung_dsim *)dev_id;
 	const struct samsung_dsim_plat_data *pdata = dsi->plat_data;
-
+	// dev_info(dsi->dev, "TE IRQ fired\n");
 	if (pdata->host_ops && pdata->host_ops->te_irq_handler)
 		return pdata->host_ops->te_irq_handler(dsi);
 
@@ -1868,7 +1868,15 @@ static int samsung_dsim_register_te_irq(struct samsung_dsim *dsi, struct device 
 	else if (IS_ERR(dsi->te_gpio))
 		return dev_err_probe(dev, PTR_ERR(dsi->te_gpio), "failed to get te GPIO\n");
 
+	dev_info(dsi->dev, "Entered register_te_gpio\n");
+	dev_info(dev, "OF node = %pOF\n", dev->of_node);
+
 	te_gpio_irq = gpiod_to_irq(dsi->te_gpio);
+
+	dev_info(dev,
+		"TE GPIO found, irq=%d value=%d\n",
+		te_gpio_irq,
+		gpiod_get_value_cansleep(dsi->te_gpio));
 
 	ret = request_threaded_irq(te_gpio_irq, samsung_dsim_te_irq_handler, NULL,
 				   IRQF_TRIGGER_RISING | IRQF_NO_AUTOEN, "TE", dsi);

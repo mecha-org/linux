@@ -790,7 +790,7 @@
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_wifi_ctrl>;
 	status = "okay";
 	cd-gpios = <&gpio2 10 GPIO_ACTIVE_LOW>;
-	
+
 	wifi_wake_host {
 		compatible = "nxp,iw61x";
 		interrupt-parent = <&gpio3>;
@@ -856,6 +856,7 @@
 		compatible = "mecha,comet";
 		reg = <0>;
 		pinctrl-0 = <&pinctrl_mipi_gpio>;
+		te-gpios = <&gpio4 8 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&gpio4 9 GPIO_ACTIVE_LOW>;
 		status = "okay";
 
@@ -1162,6 +1163,7 @@
 	pinctrl_mipi_gpio: mipigpiogrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_SAI1_RXD7__GPIO4_IO09		0x184
+			MX8MP_IOMUXC_SAI1_RXD6__GPIO4_IO08		0x19
 		>;
 	};
 
