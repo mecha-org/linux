@@ -190,19 +190,18 @@ static struct ch13726a_desc thor_bottom_desc = {
 
 static const struct drm_display_mode comet_modes[] = {
 	{
-		/* 60Hz */
-		.clock = (1080 + 80 + 80 + 80) *
-			 (1240 + 90 + 90 + 90) * 60 / 1000,
-
-		.hdisplay = 1080,
-		.hsync_start = 1080 + 80,
-		.hsync_end = 1080 + 80 + 80,
-		.htotal = 1080 + 80 + 80 + 80,
-		.vdisplay = 1240,
-		.vsync_start = 1240 + 90,
-		.vsync_end = 1240 + 90 + 90,
-		.vtotal = 1240 + 90 + 90 + 90,
-	},
+    	/* 60Hz */
+    	.clock = (1080 + 28 + 4 + 36) *
+    		 (1240 + 16 + 4 + 8) * 60 / 1000,
+    	.hdisplay = 1080,
+    	.hsync_start = 1080 + 28,
+    	.hsync_end = 1080 + 28 + 4,
+    	.htotal = 1080 + 28 + 4 + 36,
+    	.vdisplay = 1240,
+    	.vsync_start = 1240 + 16,
+    	.vsync_end = 1240 + 16 + 4,
+    	.vtotal = 1240 + 16 + 4 + 8,
+    },
 };
 
 static const struct ch13726a_desc comet_desc = {
