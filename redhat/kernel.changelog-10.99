@@ -1,3 +1,9 @@
+* Mon Sep 07 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.2.4-0]
+- Remove unnecessary config file for Fedora (Justin M. Forbes)
+- Add F43 and F44 to release_targets (Justin M. Forbes)
+- Linux v7.2.4
+Resolves: 
+
 * Wed Sep 02 2026 Justin M. Forbes <jforbes@fedoraproject.org> [7.2.3-0]
 - Bluetooth: btusb: limit RTL8761B BROKEN_EXT_SCAN quirk to 0bda:a728 (Junjie Cao)
 - ACPI: scan: Do not combine resources that overlap completely (Rafael J. Wysocki)
