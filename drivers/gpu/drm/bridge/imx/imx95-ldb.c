@@ -11,7 +11,7 @@
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
+// #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 
 #include <drm/drm_atomic_state_helper.h>
@@ -78,9 +78,9 @@ imx95_ldb_bridge_mode_set(struct drm_bridge *bridge,
 	bool is_split = ldb_channel_is_split_link(ldb_ch);
 	int ret;
 
-	ret = pm_runtime_resume_and_get(dev);
-	if (ret < 0)
-		dev_err(dev, "failed to get runtime PM sync: %d\n", ret);
+	// ret = pm_runtime_resume_and_get(dev);
+	// if (ret < 0)
+	// 	dev_err(dev, "failed to get runtime PM sync: %d\n", ret);
 
 	/* set lvds di clock rate */
 	clk_set_rate(imx95_ldb->clk_di[ldb_ch->chno], di_clk);
@@ -173,9 +173,10 @@ imx95_ldb_bridge_atomic_disable(struct drm_bridge *bridge,
 	clk_disable_unprepare(imx95_ldb->clk_di[ldb_ch->chno]);
 	clk_disable_unprepare(imx95_ldb->clk_ch[ldb_ch->chno]);
 
-	ret = pm_runtime_put(dev);
-	if (ret < 0)
-		dev_err(dev, "failed to put runtime PM: %d\n", ret);
+	// TODO: FIXME
+	// ret = pm_runtime_put(dev);
+	// if (ret < 0)
+	// 	dev_err(dev, "failed to put runtime PM: %d\n", ret);
 }
 
 static const u32 imx95_ldb_bus_output_fmts[] = {
@@ -410,7 +411,7 @@ static int imx95_ldb_probe(struct platform_device *pdev)
 		return ret;
 
 	platform_set_drvdata(pdev, imx95_ldb);
-	pm_runtime_enable(dev);
+	// pm_runtime_enable(dev);
 
 	ldb_add_bridge_helper(ldb);
 
@@ -424,7 +425,7 @@ static void imx95_ldb_remove(struct platform_device *pdev)
 
 	ldb_remove_bridge_helper(ldb);
 
-	pm_runtime_disable(&pdev->dev);
+	// pm_runtime_disable(&pdev->dev);
 }
 
 static int __maybe_unused imx95_ldb_runtime_suspend(struct device *dev)
