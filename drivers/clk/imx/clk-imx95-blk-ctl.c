@@ -219,6 +219,8 @@ static const struct imx95_blk_ctl_dev_data imx95_lvds_csr_dev_data = {
 	.num_clks = ARRAY_SIZE(imx95_lvds_clk_dev_data),
 	.clk_dev_data = imx95_lvds_clk_dev_data,
 	.clk_reg_offset = 0,
+	/* Keep PD_DISPLAY powered so the LVDS CSR regs stay accessible. */
+	.rpm_enabled = true,
 };
 
 static const char * const imx95_disp_engine_parents[] = {
@@ -252,6 +254,8 @@ static const struct imx95_blk_ctl_dev_data imx95_dispmix_csr_dev_data = {
 	.num_clks = ARRAY_SIZE(imx95_dispmix_csr_clk_dev_data),
 	.clk_dev_data = imx95_dispmix_csr_clk_dev_data,
 	.clk_reg_offset = 0,
+	/* Keep PD_DISPLAY powered so the display CSR regs stay accessible. */
+	.rpm_enabled = true,
 };
 
 static const struct imx95_blk_ctl_clk_dev_data netxmix_clk_dev_data[] = {
@@ -431,7 +435,8 @@ static int imx95_bc_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	if (pm_runtime_enabled(bc->dev)) {
+	/* rpm_enabled CSRs must stay resumed: suspend gates the clock they route */
+	if (pm_runtime_enabled(bc->dev) && !bc->pdata->rpm_enabled) {
 		pm_runtime_put_sync(&pdev->dev);
 		clk_disable_unprepare(bc->clk_apb);
 	}

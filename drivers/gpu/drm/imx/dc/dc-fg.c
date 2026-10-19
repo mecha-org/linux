@@ -78,10 +78,13 @@
 
 #define FGCHSTAT(o)		(0x78 + (o))
 #define  SECSYNCSTAT		BIT(24)
+#define  PRIMSYNCSTAT		BIT(8)
 #define  SFIFOEMPTY		BIT(16)
+#define  PFIFOEMPTY		BIT(0)
 
 #define FGCHSTATCLR(o)		(0x7c + (o))
 #define  CLRSECSTAT		BIT(16)
+#define  CLRPRIMSTAT		BIT(0)
 
 struct dc_fg_subdev_match_data {
 	const struct regmap_config	*regmap_config;
@@ -326,6 +329,28 @@ int dc_fg_wait_for_secondary_syncup(struct dc_fg *fg)
 
 	return regmap_read_poll_timeout(fg->reg, FGCHSTAT(fg->reg_offset), val,
 					val & SECSYNCSTAT, 5, 100000);
+}
+
+bool dc_fg_primary_requests_to_read_empty_fifo(struct dc_fg *fg)
+{
+	u32 val;
+
+	regmap_read(fg->reg, FGCHSTAT(fg->reg_offset), &val);
+
+	return !!(val & PFIFOEMPTY);
+}
+
+void dc_fg_primary_clear_channel_status(struct dc_fg *fg)
+{
+	regmap_write(fg->reg, FGCHSTATCLR(fg->reg_offset), CLRPRIMSTAT);
+}
+
+int dc_fg_wait_for_primary_syncup(struct dc_fg *fg)
+{
+	unsigned int val;
+
+	return regmap_read_poll_timeout(fg->reg, FGCHSTAT(fg->reg_offset), val,
+					val & PRIMSYNCSTAT, 5, 100000);
 }
 
 void dc_fg_enable_clock(struct dc_fg *fg)
