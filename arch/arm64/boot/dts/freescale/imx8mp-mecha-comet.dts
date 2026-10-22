@@ -290,6 +290,29 @@
 	status = "okay";
 };
 
+&gpio1 {
+       lte_reset {
+               gpio-hog;
+               gpios = <16 GPIO_ACTIVE_HIGH>;
+               output-high;
+               line-name = "LTE-RESET";
+       };
+
+       lte_pwr {
+               gpio-hog;
+               gpios = <17 GPIO_ACTIVE_HIGH>;
+               output-high;
+               line-name = "LTE-PWR";
+       };
+
+       lte-ap-mode {
+               gpio-hog;
+               gpios = <27 GPIO_ACTIVE_HIGH>;
+               output-high;
+               line-name = "LTE-AP-DIS";
+       };
+};
+
 &i2c1 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
@@ -790,7 +813,7 @@
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_wifi_ctrl>;
 	status = "okay";
 	cd-gpios = <&gpio2 10 GPIO_ACTIVE_LOW>;
-	
+
 	wifi_wake_host {
 		compatible = "nxp,iw61x";
 		interrupt-parent = <&gpio3>;
