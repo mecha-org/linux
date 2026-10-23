@@ -311,6 +311,13 @@
                output-high;
                line-name = "LTE-AP-DIS";
        };
+
+	   wifi_rst_3v3 {
+				gpio-hog;
+				gpios = <13 GPIO_ACTIVE_HIGH>;
+				output-high;
+				line-name = "WIFI_RST_3V3";
+	};
 };
 
 &i2c1 {
@@ -771,6 +778,7 @@
 	status = "okay";
 	bluetooth {
 		compatible = "nxp,88w8987-bt";
+		reset-gpios = <&gpio1 01 GPIO_ACTIVE_LOW>;
 		fw-init-baudrate = <3000000>;
 		status="okay";
 	};
@@ -805,7 +813,6 @@
 	assigned-clock-rates = <400000000>;
 	bus-width = <4>;
 	keep-power-in-suspend;
-//	non-removable;
 	wakeup-source;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>, <&pinctrl_wifi_ctrl>;
