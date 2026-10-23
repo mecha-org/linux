@@ -451,14 +451,6 @@
 	pinctrl-0 = <&pinctrl_i2c3>;
 	status = "okay";
 
-	opt: opt3001@44 {
-        compatible = "ti,opt3001";
-        reg = <0x44>;
-        interrupt-parent = <&gpio4>;
-        interrupts = <11 IRQ_TYPE_EDGE_RISING>;
-        status = "okay";
-    };
-
 	magnetometer@1e {
 		compatible = "st,lis2mdl";
 		reg = <0x1e>;
@@ -508,10 +500,11 @@
 	opt: opt3001@44 {
 		compatible = "ti,opt3001";
 		reg = <0x44>;
-		interrupt-parent = <&pca9535>;
-		interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
-		status = "okay";
-	};
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_opt3001>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
+    };
 
 	rtc: pcf8563@51 {
 		compatible = "nxp,pcf8563";
@@ -1049,6 +1042,12 @@
 	pinctrl_rtc_int: rtcintgrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_SAI1_TXFS__GPIO4_IO10		0x1c4
+		>;
+	};
+
+	pinctrl_opt3001: opt3001grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_TXC__GPIO4_IO11		0x1c4
 		>;
 	};
 
