@@ -513,6 +513,17 @@
 		status = "okay";
 	};
 
+	rtc: pcf8563@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_rtc_int>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <10 IRQ_TYPE_LEVEL_LOW>;
+		wakeup-source;
+		#clock-cells = <0>;
+	};
+
 	tcpc_1: tusb320@60 {
 		compatible = "ti,tusb320";
 		reg = <0x60>;
@@ -1032,6 +1043,12 @@
 	pinctrl_pmic: pmicgrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_GPIO1_IO03__GPIO1_IO03		0x000001c0
+		>;
+	};
+
+	pinctrl_rtc_int: rtcintgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI1_TXFS__GPIO4_IO10		0x1c4
 		>;
 	};
 
