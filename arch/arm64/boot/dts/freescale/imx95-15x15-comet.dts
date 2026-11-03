@@ -270,6 +270,11 @@
 
 &dpu {
 	status = "okay";
+	assigned-clocks = <&scmi_clk IMX95_CLK_DISP1PIX>,
+			  <&scmi_clk IMX95_CLK_VIDEOPLL1_VCO>,
+			  <&scmi_clk IMX95_CLK_VIDEOPLL1>;
+	assigned-clock-parents = <&scmi_clk IMX95_CLK_VIDEOPLL1>;
+	assigned-clock-rates = <3840000000>, <480000000>, <120000000>;
 };
 
 &displaymix_irqsteer {
