@@ -328,7 +328,7 @@
 	// 	};
 	// };
 
-	opt3001@44 {
+	als: opt3004@44 {
 		compatible = "ti,opt3001";
 		reg = <0x44>;
 		interrupt-parent = <&pcal6408_b>;
@@ -336,20 +336,20 @@
 		status = "okay";
     	};
 
-	magnetometer@1e {
-		compatible = "st,lis2mdl";
-		reg = <0x1e>;
-		interrupt-parent = <&tca9535_a>;
-		interrupts = <15 IRQ_TYPE_EDGE_RISING>;
-	};
-
 	imu: icm42605@6a {
-		compatible = "st,lsm6ds3tr-c";
+		compatible = "st,lsm6ds3";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_imu_gpio>;
 		reg = <0x6a>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	magnetometer: lis2mdl@1e {
+		compatible = "st,lis2mdl";
+		reg = <0x1e>;
+		interrupt-parent = <&tca9535_a>;
+		interrupts = <15 IRQ_TYPE_EDGE_RISING>;
 	};
 };
 
@@ -507,8 +507,7 @@
 		interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pcal6524>;
-
+		pinctrl-0 = <&pinctrl_pcal6524_b>;
 
 		gpio-line-names =
 		"WIFI_RST_IND_3V3",
@@ -555,7 +554,7 @@
 		interrupts = <21 IRQ_TYPE_LEVEL_LOW>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pcal6524>;
+		pinctrl-0 = <&pinctrl_tca9535_a>;
 
 		gpio-line-names =
 		"USB1_3.0_MUX_SEL",
@@ -602,7 +601,7 @@
 		interrupts = <22 IRQ_TYPE_LEVEL_LOW>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pcal6524>;
+		pinctrl-0 = <&pinctrl_pcal6524_a>;
 
 		gpio-line-names =
 		"RESET_PCIE#_3V3",
@@ -625,7 +624,7 @@
 		rst_dpi {
 			gpio-hog;
 			gpios = <2 GPIO_ACTIVE_HIGH>;
-			output-high;
+			output-low;
 			line-name = "RST_DP1.2";
 		};
 
@@ -884,12 +883,21 @@
 		>;
 	};
 
+	pinctrl_pcal6524_a: pcal6524agrp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO22__GPIO2_IO_BIT22		0x31e
+		>;
+	};
 
-	pinctrl_pcal6524: pcal6524grp {
+	pinctrl_pcal6524_b: pcal6524bgrp {
 		fsl,pins = <
 			IMX95_PAD_GPIO_IO34__GPIO5_IO_BIT14		0x31e
-			IMX95_PAD_GPIO_IO21__GPIO2_IO_BIT21		0X31e
-			IMX95_PAD_GPIO_IO22__GPIO2_IO_BIT22		0x31e
+		>;
+	};
+
+	pinctrl_tca9535_a: tca9535agrp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO21__GPIO2_IO_BIT21		0x31e
 		>;
 	};
 
