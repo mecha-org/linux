@@ -172,6 +172,26 @@
 		status = "okay";
 	};
 
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_volume_keys>;
+
+		key-volume-up {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&gpio5 5 GPIO_ACTIVE_LOW>;
+			debounce-interval = <20>;
+		};
+
+		key-volume-down {
+			label = "Volume Down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&gpio5 6 GPIO_ACTIVE_LOW>;
+			debounce-interval = <20>;
+		};
+	};
+
     wifi_pwrseq: wifi-pwrseq {
         compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;
@@ -898,6 +918,13 @@
 	pinctrl_tca9535_a: tca9535agrp {
 		fsl,pins = <
 			IMX95_PAD_GPIO_IO21__GPIO2_IO_BIT21		0x31e
+		>;
+	};
+
+	pinctrl_volume_keys: volumekeysgrp {
+		fsl,pins = <
+			IMX95_PAD_XSPI1_DATA5__GPIO5_IO_BIT5	0x31e
+			IMX95_PAD_XSPI1_DATA6__GPIO5_IO_BIT6	0x31e
 		>;
 	};
 
