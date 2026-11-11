@@ -2,15 +2,13 @@ name: Build and Release Kernel (RPM)
 
 on:
   push:
-    branches: ["fedora*"]
-  pull_request:
-    branches: ["fedora*"]
+    branches: ["canary"]
   workflow_dispatch:
 
 jobs:
   build-rpm:
     runs-on: ubuntu-24.04-arm
-    environment: pre-release
+    environment: canary
 
     permissions:
       contents: write
