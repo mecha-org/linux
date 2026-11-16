@@ -1,0 +1,19 @@
+# ~~~
+# Symbol: DRM_EFIDRM [=n]
+# Type  : tristate
+# Defined at drivers/gpu/drm/sysfb/Kconfig:26
+#   Prompt: EFI framebuffer driver
+#   Depends on: HAS_IOMEM [=y] && DRM [=y] && MMU [=y] && EFI [=y] && (!SYSFB_SIMPLEFB [=n] || COMPILE_TEST [=n])
+#   Location:
+#     -> Device Drivers
+#       -> Graphics support
+#         -> Direct Rendering Manager (XFree86 4.1.0 and higher DRI support) (DRM [=y])
+#           -> Drivers for system framebuffers
+#             -> EFI framebuffer driver (DRM_EFIDRM [=n])
+# Selects: APERTURE_HELPERS [=n] && DRM_CLIENT_SELECTION [=m] && DRM_GEM_SHMEM_HELPER [=m] && DRM_KMS_HELPER [=m] && DRM_SYSFB_HELPER [=m] && SYSFB [=y]
+# 
+# 
+# 
+# ~~~
+# Commit: 32ae90c66fb6 (drm/sysfb: Add efidrm for EFI displays)
+# CONFIG_DRM_EFIDRM is not set
