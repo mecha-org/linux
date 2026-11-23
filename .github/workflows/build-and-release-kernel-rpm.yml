@@ -7,25 +7,53 @@ on:
     branches: ["fedora*"]
   workflow_dispatch:
 
+env:
+  PULP_CLI_VERSION: "0.41.1"
+  # Every fedora* branch builds; only pushes to fedora-mecha-7.3 upload to the repo.
+  PUBLISH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/fedora-mecha-7.3' }}
+
 jobs:
-  build-rpm:
+  # Every build gets a unique NVR so re-runs and per-commit builds don't
+  # collide in the RPM repo. It is computed once so every Fedora target of
+  # a run shares the same version. Leading dot matches redhat/Makefile's own
+  # ".test" fallback format.
+  version:
+    name: Resolve build version
     runs-on: ubuntu-24.04-arm
-    environment: pre-release
+    outputs:
+      distlocalversion: ${{ steps.stamp.outputs.distlocalversion }}
+    steps:
+      - name: Set DISTLOCALVERSION
+        id: stamp
+        run: echo "distlocalversion=.$(date -u '+%Y%m%d%H%M')" >> "$GITHUB_OUTPUT"
+
+  build-rpm:
+    name: kernel rpm (fc${{ matrix.fedora }})
+    needs: version
+    runs-on: ubuntu-24.04-arm
+    environment: canary
 
     permissions:
       contents: write
 
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: [44, 45]
+
     container:
-      image: fedora:44
+      image: registry.fedoraproject.org/fedora:${{ matrix.fedora }}
 
     env:
+      FEDORA: ${{ matrix.fedora }}
       # The redhat/ build system (kernel-ark) versions Fedora builds off a
       # "MARKER" upstream git tag and requires an UPSTREAM_BRANCH to exist
       # for its snapshot versioning. Neither exists in this fork's history,
       # so we pin both to build straight off the checked-out HEAD instead.
-      DIST: ".fc44"
+      DIST: ".fc${{ matrix.fedora }}"
       VERSION_ON_UPSTREAM: "0"
       MARKER: "HEAD"
+      DISTLOCALVERSION: ${{ needs.version.outputs.distlocalversion }}
       # Keep the binary build scoped to the base kernel + modules: skip
       # perf/tools/doc/debuginfo/selftests and the kABI stablelist checks.
       WITHOUT_FLAGS: >-
@@ -35,10 +63,10 @@ jobs:
       MECHA_PULP_USERNAME: ${{ secrets.MECHA_PULP_USERNAME }}
       MECHA_PULP_PASSWORD: ${{ secrets.MECHA_PULP_PASSWORD }}
       MECHA_PULP_API_URL: ${{ vars.MECHA_PULP_API_URL }}
-      MECHA_PULP_RPMS_REPOSITORY_NAME: ${{ vars.MECHA_PULP_RPMS_REPOSITORY_NAME }}
+      MECHA_PULP_RPM_CHANNEL: ${{ vars.MECHA_PULP_RPM_CHANNEL }}
 
     steps:
-      # fedora:44 ships without git. actions/checkout needs it present
+      # The Fedora image ships without git. actions/checkout needs it present
       # *before* it runs, or it silently falls back to a tarball download
       # with no .git directory -- which breaks every git call in redhat/.
       - name: Install base build dependencies
@@ -46,7 +74,7 @@ jobs:
           dnf -y install \
             git make gcc flex bison bzip2 rpm-build \
             python3-pyyaml findutils diffutils gawk m4 \
-            perl-interpreter tar xz rsync pipx jq
+            perl-interpreter tar xz rsync jq python3
 
       - name: Checkout code
         uses: actions/checkout@v5
@@ -58,13 +86,6 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --global user.email "ci@mechasystems.com"
           git config --global user.name "Mecha CI"
-
-      # Every build gets a unique NVR so re-runs and per-commit builds don't
-      # collide in the RPM repo. Leading dot matches redhat/Makefile's own
-      # ".test" fallback format.
-      - name: Set DISTLOCALVERSION
-        run: |
-          echo "DISTLOCALVERSION=.$(date -u '+%Y%m%d%H%M')" >> "$GITHUB_ENV"
 
       - name: Render kernel.spec
         run: |
@@ -108,16 +129,19 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: kernel-packages-rpm
+          name: kernel-packages-rpm-fc${{ matrix.fedora }}
           path: dist/**/*.rpm
 
       - name: Setup | Pulp CLI
+        if: env.PUBLISH == 'true'
         run: |
-          pipx install --force "pulp-cli==0.39.3"
-          pipx inject pulp-cli pulp_rpm
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          python3 -m venv /opt/pulp-cli
+          /opt/pulp-cli/bin/pip install --quiet "pulp-cli==${PULP_CLI_VERSION}"
+          echo "/opt/pulp-cli/bin" >> "$GITHUB_PATH"
 
       - name: Configure Pulp CLI
+        if: env.PUBLISH == 'true'
         run: |
           set -euo pipefail
           PULP_API_URL="$(printf '%s' "${MECHA_PULP_API_URL}" | tr -d '[:space:]')"
@@ -126,6 +150,7 @@ jobs:
             echo "MECHA_PULP_API_URL is empty after trimming whitespace"
             exit 1
           fi
+          [ -n "$MECHA_PULP_RPM_CHANNEL" ] || { echo "MECHA_PULP_RPM_CHANNEL is empty"; exit 1; }
 
           pulp config create \
             --username "$MECHA_PULP_USERNAME" \
@@ -133,11 +158,14 @@ jobs:
             --base-url "$PULP_API_URL" \
             --overwrite
 
+      # Uploading also signs each package (repo signing service) and publishes
+      # the repo; the canary distribution follows the repo automatically.
       - name: Publish RPMs to Pulp
-        continue-on-error: true
+        if: env.PUBLISH == 'true'
         run: |
           set -euo pipefail
           shopt -s globstar nullglob
+          REPO="repo-rpm-fedora-${FEDORA}-${MECHA_PULP_RPM_CHANNEL}"
           rpms=(dist/**/*.rpm)
           if [ "${#rpms[@]}" -eq 0 ]; then
             echo "No RPMs found in dist/ to publish"
@@ -145,14 +173,25 @@ jobs:
           fi
 
           for rpm in "${rpms[@]}"; do
-            echo "[INFO] Uploading $rpm"
-            pulp rpm content upload --repository="$MECHA_PULP_RPMS_REPOSITORY_NAME" --file="$rpm"
+            echo "[INFO] Uploading $(basename "$rpm") to $REPO"
+            pulp rpm content upload --repository "$REPO" --file "$rpm"
           done
 
-          PUB_HREF=$(pulp rpm publication create \
-            --repository="$MECHA_PULP_RPMS_REPOSITORY_NAME" | jq -r '.pulp_href')
-
-          pulp rpm distribution update \
-            --name="$MECHA_PULP_RPMS_REPOSITORY_NAME" \
-            --base-path="$MECHA_PULP_RPMS_REPOSITORY_NAME" \
-            --publication="$PUB_HREF"
+      - name: Verify kernel is served
+        if: env.PUBLISH == 'true'
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          BASE="https://pkg.mecha.so/repo/rpm/fedora-${FEDORA}/${MECHA_PULP_RPM_CHANNEL}"
+          core=(dist/**/kernel-core-*.rpm)
+          WANT="$(basename "${core[0]}")"
+          for _ in $(seq 1 40); do
+            PRIMARY=$(curl -fsSL "$BASE/repodata/repomd.xml" | grep -oP 'href="\Krepodata/[^"]*primary\.xml[^"]*')
+            if curl -fsSL "$BASE/$PRIMARY" | gzip -dcf | grep "<location href=\"[^\"]*/${WANT}\"" >/dev/null; then
+              echo "[INFO] served at $BASE: $WANT"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "[ERROR] $WANT not served at $BASE after 10 minutes"
+          exit 1
