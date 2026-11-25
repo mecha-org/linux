@@ -536,6 +536,13 @@ static int areas_setup(struct hantro_ctx *ctx)
 	return 0;
 }
 
+static dma_addr_t
+hantro_vc8000e_src_plane_addr(struct vb2_buffer *vb, unsigned int plane)
+{
+	return vb2_dma_contig_plane_dma_addr(vb, plane) +
+	       vb->planes[plane].data_offset;
+}
+
 int hantro_vc8000e_h264_enc_run(struct hantro_ctx *ctx)
 {
 	struct hantro_dev *vpu = ctx->dev;
@@ -615,31 +622,26 @@ int hantro_vc8000e_h264_enc_run(struct hantro_ctx *ctx)
 	}
 
 	regs->swreg12.input_y_base =
-		vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+		hantro_vc8000e_src_plane_addr(&src_buf->vb2_buf, 0);
 
 	if (info->comp_planes > 1) {
 		if (src_fmt->num_planes > 1)
 			regs->swreg13.input_cb_base =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf,
-							      1);
+				hantro_vc8000e_src_plane_addr(&src_buf->vb2_buf, 1);
 		else
 			regs->swreg13.input_cb_base =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf,
-							      0) +
+				regs->swreg12.input_y_base +
 				luma_stride * src_fmt->height;
 	}
 
 	if (info->comp_planes > 2) {
 		if (src_fmt->num_planes > 1)
 			regs->swreg14.input_cr_base =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf,
-							      2);
+				hantro_vc8000e_src_plane_addr(&src_buf->vb2_buf, 2);
 		else
 			regs->swreg14.input_cr_base =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf,
-							      0) +
-				luma_stride * src_fmt->height +
-				chroma_stride * src_fmt->height;
+				regs->swreg13.input_cb_base +
+				chroma_stride * (src_fmt->height / 2);
 	}
 
 	/* Output */
